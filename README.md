@@ -38,7 +38,10 @@ batchpilot/
 
 - Java 17+
 - Maven 3.9+
-- Node.js 18+ and npm
+- Node.js 18+ and npm — **npm 11.10.0+ recommended** so the supply-chain
+  cooldown in `frontend/.npmrc` (`min-release-age`) is actually enforced; on
+  older npm it's silently ignored (no error, no protection). Check with
+  `npm --version`.
 
 ## Build & run — backend
 
