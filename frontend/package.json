@@ -31,6 +31,7 @@
     "typescript": "~5.4.2"
   },
   "overrides": {
-    "postcss": "8.4.21"
+    "postcss": "8.4.21",
+    "brace-expansion": "2.1.4"
   }
 }

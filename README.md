@@ -114,6 +114,13 @@ by any static file server or reverse-proxied alongside the backend.
     `test` target in `angular.json` and `tsconfig.spec.json`, eliminating
     the whole subtree rather than pinning `flatted` to whatever ancient
     version happened to be mirrored.
+  - Low-level utility packages that show up multiple times at different
+    versions in the tree (e.g. `brace-expansion`, pulled in by `minimatch`
+    at both `^1.1.7` and `^2.0.2` via different tools' internal glob
+    matching) are worth consolidating to one `overrides` pin even before
+    they've actually failed — one resolvable version everywhere instead of
+    several is strictly safer against a corporate registry that's only
+    mirrored one specific release.
 - **`EPERM: operation not permitted, rmdir ...` warnings on Windows** during
   `npm install` — a file in `node_modules` is locked by another process
   (antivirus real-time scanning, an IDE, or OneDrive sync watching the
