@@ -136,10 +136,12 @@ automatically on change with no manual subscription management.
   requirements; owns open-tab state (`Tab[]`, each tab is either a `terminal`
   or `files` tab bound to one environment) and the settings/environment-form
   modal visibility.
-- **`terminal/terminal-tab.component.ts`** — wraps one `@xterm/xterm`
-  instance plus its `FitAddon`/`WebLinksAddon` and WebSocket connection;
-  reacts to font-size/theme changes via an Angular `effect()` over the
-  settings signal, and to tab activation via `ngOnChanges`.
+- **`terminal/terminal-tab.component.ts`** — wraps one `xterm` (v4.6.0 —
+  see the note on the unscoped package name below) instance plus its
+  `FitAddon`/`WebLinksAddon` and WebSocket connection; reacts to
+  font-size/theme changes via an Angular `effect()` calling `setOption()`
+  (xterm 4.x has no writable `.options`, unlike 5.x) over the settings
+  signal, and to tab activation via `ngOnChanges`.
 - **`file-manager/`**, **`quick-execute/`**, **`settings/`**,
   **`environments/`** — one component per feature area, each talking to the
   backend through `ApiService` (or `AppStateService` where the action needs

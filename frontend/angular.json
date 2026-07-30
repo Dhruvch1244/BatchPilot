@@ -28,14 +28,14 @@
               "src/assets"
             ],
             "styles": [
-              "node_modules/@xterm/xterm/css/xterm.css",
+              "node_modules/xterm/css/xterm.css",
               "src/styles.css"
             ],
             "scripts": [],
             "allowedCommonJsDependencies": [
-              "@xterm/xterm",
-              "@xterm/addon-fit",
-              "@xterm/addon-web-links"
+              "xterm",
+              "xterm-addon-fit",
+              "xterm-addon-web-links"
             ]
           },
           "configurations": {

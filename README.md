@@ -121,6 +121,30 @@ by any static file server or reverse-proxied alongside the backend.
     they've actually failed — one resolvable version everywhere instead of
     several is strictly safer against a corporate registry that's only
     mirrored one specific release.
+  - Sometimes even that isn't enough: `enhanced-resolve` (a hard, non-optional
+    dependency of `webpack`, itself a hard dependency of
+    `@angular-devkit/build-angular`) has no old-but-compatible version to
+    fall back to — only a genuinely current `^5.17.1` release works, and no
+    `overrides` trick fixes a registry that simply hasn't mirrored one. If
+    you hit that, it's a registry configuration problem, not a project one:
+    check `npm config get registry` and every `.npmrc` in scope (project,
+    user, global) for a registry URL pointed at a narrow/curated feed (e.g.
+    one literally named `npm-prereleases`) instead of your org's
+    general-purpose full npm mirror, and get the correct URL from your
+    platform/Artifactory team.
+- **xterm.js pinned to the old unscoped `xterm` package, not `@xterm/xterm`**
+  — xterm.js renamed its npm scope starting at v5.0 (`xterm` →
+  `@xterm/xterm`, `xterm-addon-*` → `@xterm/addon-*`); this project uses
+  `xterm@4.6.0` with `xterm-addon-fit@0.5.0` and
+  `xterm-addon-web-links@0.6.0` (the newest versions of each still
+  peer-compatible with 4.x) because that's what's available on the
+  registry this project was set up against. The two are **not**
+  drop-in-compatible: 4.x has no writable `Terminal.options` (use
+  `term.setOption(key, value)` instead), and the theme key is `selection`,
+  not `selectionBackground`. If your registry does carry the `@xterm/*`
+  scope, switching back is straightforward — swap the four package names
+  in `package.json`/`angular.json`/`terminal-tab.component.ts` and reverse
+  those two API differences.
 - **`EPERM: operation not permitted, rmdir ...` warnings on Windows** during
   `npm install` — a file in `node_modules` is locked by another process
   (antivirus real-time scanning, an IDE, or OneDrive sync watching the

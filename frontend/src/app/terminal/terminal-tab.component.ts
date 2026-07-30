@@ -9,9 +9,9 @@ import {
   ViewChild,
   effect
 } from '@angular/core';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Terminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+import { WebLinksAddon } from 'xterm-addon-web-links';
 import { AppStateService } from '../core/app-state.service';
 
 // VS Code "Dark+" inspired ANSI palette, with the green slots tied to the
@@ -22,7 +22,7 @@ const THEME_DARK = {
   foreground: '#d4d4d4',
   cursor: '#d4d4d4',
   cursorAccent: '#1e1e1e',
-  selectionBackground: '#264f78',
+  selection: '#264f78',
   black: '#000000',
   red: '#cd3131',
   green: '#17a370',
@@ -46,7 +46,7 @@ const THEME_LIGHT = {
   foreground: '#1d2129',
   cursor: '#1d2129',
   cursorAccent: '#ffffff',
-  selectionBackground: '#add6ff',
+  selection: '#add6ff',
   black: '#000000',
   red: '#cd3131',
   green: '#006044',
@@ -102,8 +102,8 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
     effect(() => {
       const settings = this.state.settings();
       if (this.term) {
-        this.term.options.fontSize = settings.fontSize;
-        this.term.options.theme = settings.theme === 'dark' ? THEME_DARK : THEME_LIGHT;
+        this.term.setOption('fontSize', settings.fontSize);
+        this.term.setOption('theme', settings.theme === 'dark' ? THEME_DARK : THEME_LIGHT);
         if (this.fitAddon) safeFit(this.fitAddon);
       }
     });
