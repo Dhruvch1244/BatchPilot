@@ -17,6 +17,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -104,7 +105,12 @@ public class TerminalWebSocketHandler extends AbstractWebSocketHandler {
             return;
         }
         OutputStream stdin = terminal.channel().getInvertedIn();
-        byte[] data = message.getPayload().array();
+        // Must respect the buffer's actual position/limit rather than assuming the
+        // backing array (.array()) starts at 0 and is exactly the payload length --
+        // the servlet container's ByteBuffer isn't guaranteed to be shaped that way.
+        ByteBuffer payload = message.getPayload();
+        byte[] data = new byte[payload.remaining()];
+        payload.get(data);
         stdin.write(data);
         stdin.flush();
     }

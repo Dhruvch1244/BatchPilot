@@ -13,8 +13,7 @@ import java.util.List;
 @Builder
 public class StageSearchResult {
     private String environmentId;
-    private String filename;
+    private String query;
     private long searchedAt;
-    private List<StageGroup> stages;
-    private List<StageMatch> unclassifiedMatches;
+    private List<FileStageResult> files;
 }

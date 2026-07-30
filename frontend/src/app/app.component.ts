@@ -47,6 +47,9 @@ export class AppComponent implements OnInit {
   quickExecuteOpen = false;
   settingsOpen = false;
   environmentForm: EnvironmentFormState = null;
+  /** Read once by a newly created stage-tracker tab's ngOnInit; see
+   * openStageTrackerForQuery. */
+  pendingStageTrackerQuery = '';
 
   constructor(public state: AppStateService) {}
 
@@ -83,6 +86,20 @@ export class AppComponent implements OnInit {
 
   openS3TransferTab(environmentId: string): void {
     this.openSingletonTab(environmentId, 's3-transfer', (env) => `${env?.name ?? 'S3 Transfer'} — Staging`);
+  }
+
+  /** Applications rows navigate here with a filename extracted from the YARN app name.
+   * Always opens a fresh Stage Tracker tab (closing any existing one for this
+   * environment first) so the search reliably runs regardless of whether one was
+   * already open — simpler and more predictable than trying to push a new query into
+   * a live component instance. */
+  openStageTrackerForQuery(environmentId: string, query: string): void {
+    this.tabs = this.tabs.filter((t) => !(t.type === 'stage-tracker' && t.environmentId === environmentId));
+    this.pendingStageTrackerQuery = query;
+    const env = this.state.environments().find((e) => e.id === environmentId);
+    const id = nextTabId();
+    this.tabs = [...this.tabs, { id, type: 'stage-tracker', environmentId, title: `${env?.name ?? 'Stage Tracker'} — Stages` }];
+    this.activeTabId = id;
   }
 
   private openSingletonTab(environmentId: string, type: Tab['type'], titleFor: (env?: Environment) => string): void {

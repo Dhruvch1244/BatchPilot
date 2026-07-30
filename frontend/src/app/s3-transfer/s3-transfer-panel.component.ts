@@ -139,7 +139,16 @@ function joinPath(directory: string, name: string): string {
             </div>
             <div class="quick-execute-command">$ {{ result.command }}</div>
             @if (result.stdout) {
-              <pre class="quick-execute-output quick-execute-stdout">{{ result.stdout }}</pre>
+              @if (showFullOutput) {
+                <pre class="quick-execute-output quick-execute-stdout">{{ result.stdout }}</pre>
+              } @else {
+                <pre class="quick-execute-output quick-execute-stdout s3-output-summary">{{ lastLine(result.stdout) }}</pre>
+              }
+              @if (hasMultipleLines(result.stdout)) {
+                <button class="s3-output-toggle" type="button" (click)="showFullOutput = !showFullOutput">
+                  {{ showFullOutput ? 'Show summary only' : 'Show full output' }}
+                </button>
+              }
             }
             @if (result.stderr) {
               <pre class="quick-execute-output quick-execute-stderr">{{ result.stderr }}</pre>
@@ -186,6 +195,17 @@ function joinPath(directory: string, name: string): string {
       cursor: pointer;
     }
     .vendor-remove-btn:hover { background: var(--bg-hover); color: var(--error); }
+    .s3-output-summary { max-height: none; white-space: pre-wrap; word-break: break-all; }
+    .s3-output-toggle {
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      font-size: 11px;
+      padding: 2px 0;
+      cursor: pointer;
+      align-self: flex-start;
+    }
+    .s3-output-toggle:hover { text-decoration: underline; }
   `]
 })
 export class S3TransferPanelComponent implements OnInit {
@@ -207,6 +227,7 @@ export class S3TransferPanelComponent implements OnInit {
   running = false;
   error: string | null = null;
   result: QuickExecuteResult | null = null;
+  showFullOutput = false;
 
   constructor(private api: ApiService) {}
 
@@ -255,10 +276,20 @@ export class S3TransferPanelComponent implements OnInit {
     return `aws s3 cp ${this.sourcePreviewPath()} s3://$S3_BUCKET/daaf-staging/${vendor}/${file}.${this.fileType}.${dateSuffix}${extra ? ' ' + extra : ''}`;
   }
 
+  lastLine(output: string): string {
+    const lines = output.split('\n').map((l) => l.trim()).filter(Boolean);
+    return lines.length > 0 ? lines[lines.length - 1] : output.trim();
+  }
+
+  hasMultipleLines(output: string): boolean {
+    return output.split('\n').map((l) => l.trim()).filter(Boolean).length > 1;
+  }
+
   async run(): Promise<void> {
     if (!this.canRun()) return;
     this.running = true;
     this.error = null;
+    this.showFullOutput = false;
     try {
       const sourcePath = await this.resolveSourcePath();
       this.result = await firstValueFrom(

@@ -17,8 +17,8 @@ public class StageTrackerController {
     }
 
     @GetMapping("/api/environments/{id}/stage-tracker/search")
-    public StageSearchResult search(@PathVariable String id, @RequestParam String filename) {
-        return stageTrackerService.search(id, filename);
+    public StageSearchResult search(@PathVariable String id, @RequestParam String query) {
+        return stageTrackerService.search(id, query);
     }
 
     @GetMapping("/api/stage-tracker/history")

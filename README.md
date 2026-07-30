@@ -247,24 +247,45 @@ separate connection mechanism, every call runs a `yarn` CLI command on the
 same session Terminal/Quick Execute/File Manager already share:
 
 - **Applications** — lists every YARN application (`yarn application -list
-  -appStates ALL`) with state, progress, and a kill action
-  (`yarn application -kill <id>`) for anything not yet finished. Auto-refreshes
-  every 8 seconds. Sortable by state (in YARN's own lifecycle order —
-  SUBMITTED → ACCEPTED → RUNNING → FINISHED → FAILED → KILLED), name, or user.
-  Clicking a row (not the kill button) opens its logs.
+  -appStates ALL`), grouped into **Running** (always shown, never collapsed),
+  **Finished**, **Failed**, and **Killed** sections (the last three
+  collapsible, with counts) so a cluster with hundreds of historical
+  applications doesn't bury the ones that are actually running right now.
+  Each section is paginated (20 per page) rather than rendering everything at
+  once. Defaults to newest-first — sorted by the sequence number embedded in
+  the application ID (`application_<clusterTimestamp>_<sequence>`) rather
+  than an extra `-status` call per application, since `-list` doesn't return
+  timestamps at all; also sortable by name or user. Auto-refreshes every 8
+  seconds. The kill button only appears on applications actually in a
+  killable state (not just disabled on the rest) — nothing to click on a
+  FINISHED/FAILED/KILLED row. A dedicated logs icon opens that application's
+  logs; clicking the row itself instead extracts the file name from the
+  application name (see below) and jumps to **Stage Tracker** pre-searched
+  for that exact file.
 - **Stage Tracker** — searches by filename and shows which YARN applications
-  correspond to it, grouped into the five pipeline stages (Preprocessor,
-  Validation, Normalization, Daaf, Transmission) with per-stage timing pulled
-  from `yarn application -status` (`Start-Time`/`Finish-Time`) and a kill
-  action per match. Clicking a match (by name or application ID — the
-  filename is what you actually know going in, so that's what's foregrounded)
-  opens its logs. A file can have multiple matches per stage (re-runs) —
-  every match is shown, not collapsed into one. Every search upserts into
-  `search-history.json` (searching the same filename again refreshes that one
-  entry instead of piling up duplicates) and surfaces as a "Recent" dropdown
-  capped at the 10 most recent unique filenames; picking one re-runs a fresh
-  search rather than replaying stale state, since application status changes
-  over time.
+  correspond to it. Application names follow
+  `<Stage>_<fileName>_<YYYYMMDD>` (the date suffix is optional); a broad
+  search term can match applications belonging to *different* underlying
+  files (searching "2026_07" might hit both `report_2026_07.csv` and
+  `sales_2026_07.xlsx`), so results are grouped one card per distinct file,
+  not lumped into one. Each file's pipeline only shows the stages it actually
+  has activity in — **Preprocessor, Validation, Normalization, Delta,
+  Transmission, Outbound** are all recognized, but nothing forces a fixed
+  count of stages per file (Outbound in particular is conditional, only some
+  files go through it) — ordered by each stage's earliest observed start
+  time rather than a hardcoded sequence, i.e. the actual flow for that file.
+  Each card also shows the most recent completion time across its matches.
+  Clicking a match narrows the search down to just that file (useful after a
+  broad search matched several) rather than opening logs — logs have their
+  own dedicated icon per match, same as Applications. A **Recent searches**
+  sidebar on the left (not a dropdown) keeps the last 10 unique filenames
+  searched, persisted server-side so they survive a reconnect/reload — you
+  don't have to retype a filename you already searched. Every search upserts
+  into `search-history.json` (searching the same filename again refreshes
+  that entry instead of piling up duplicates). Per-application `-status`
+  calls (needed for accurate start/finish times, since `-list` doesn't carry
+  them) run concurrently rather than one-at-a-time — with more than a couple
+  of matches, sequential round-trips were the dominant cost of a search.
 - **Logs** — from either view, opening an application's logs gets a live
   500-line preview (with one-click Errors/Warnings presets or a custom grep
   filter) and a **Download** button. Logs can run past 24 GB, so the download
@@ -281,15 +302,15 @@ same session Terminal/Quick Execute/File Manager already share:
   set.
 
   **Stage classification is a v1 heuristic, not ground truth.** There is no
-  connection wired up to the pipeline's own status database (a "Daaf DB")
-  that would give an authoritative per-file stage — instead,
-  `PipelineStage.matchApplicationName` (`backend/.../model/PipelineStage.java`)
-  infers a stage from a keyword in the YARN application's *name*
-  (`Preprocessor_<file>` → Preprocessor, etc.). Applications whose name
-  doesn't contain a recognized keyword show up under "Other matches" rather
-  than being silently dropped. Wiring this to a real status source instead of
-  name-matching is the natural next step if/when that database is reachable
-  from the backend.
+  connection wired up to the pipeline's own status database that would give
+  an authoritative per-file stage — instead, `PipelineStage.extract`
+  (`backend/.../model/PipelineStage.java`) infers both the stage and the file
+  identity purely from the YARN application's *name*
+  (`Preprocessor_<file>_<date>` → stage `PREPROCESSOR`, file `<file>`).
+  Applications whose name doesn't start with a recognized stage keyword still
+  show up under "Other matches" rather than being silently dropped. Wiring
+  this to a real status source instead of name-matching is the natural next
+  step if/when that database is reachable from the backend.
 
   Every `applicationId` is validated against YARN's own ID format
   (`application_<timestamp>_<sequence>`) in `YarnService` before being

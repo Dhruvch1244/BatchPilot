@@ -121,7 +121,13 @@ export interface StageMatch {
   elapsedMs: number;
 }
 
-export type PipelineStage = 'PREPROCESSOR' | 'VALIDATION' | 'NORMALIZATION' | 'DAAF' | 'TRANSMISSION';
+export type PipelineStage =
+  | 'PREPROCESSOR'
+  | 'VALIDATION'
+  | 'NORMALIZATION'
+  | 'DELTA'
+  | 'TRANSMISSION'
+  | 'OUTBOUND';
 
 export interface StageGroup {
   stage: PipelineStage;
@@ -129,12 +135,18 @@ export interface StageGroup {
   matches: StageMatch[];
 }
 
-export interface StageSearchResult {
-  environmentId: string;
-  filename: string;
-  searchedAt: number;
+export interface FileStageResult {
+  coreFileName: string;
+  latestCompletedAt: number | null;
   stages: StageGroup[];
   unclassifiedMatches: StageMatch[];
+}
+
+export interface StageSearchResult {
+  environmentId: string;
+  query: string;
+  searchedAt: number;
+  files: FileStageResult[];
 }
 
 export interface StageSearchHistoryEntry {

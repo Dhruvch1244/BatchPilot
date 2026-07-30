@@ -128,24 +128,58 @@ available on the CLI in general. Every `applicationId` path variable is
 validated against YARN's own ID format before being interpolated into a
 command string, since exec channels run through a remote shell.
 
-`StageTrackerService` builds on top of `YarnService`: given a filename, it
-lists all applications, filters to ones whose name contains the search term,
-and classifies each into one of the five pipeline stages (Preprocessor,
-Validation, Normalization, Daaf, Transmission) via
-`PipelineStage.matchApplicationName` — a keyword-in-name heuristic, not a
-lookup against the pipeline's actual status database (not wired up). Each
+`StageTrackerService` builds on top of `YarnService`: given a search query,
+it lists all applications, filters to ones whose name contains the query,
+and for every match extracts both the pipeline stage and the *core file
+name* via `PipelineStage.extract` — application names follow the
+`<Stage>_<fileName>_<YYYYMMDD>` convention (trailing date optional), and
+extraction is array-slicing on `_` (first token = stage keyword, last token
+= date only if it matches `\d{8}`, everything in between rejoined by `_` =
+file name) rather than a single regex, specifically so file names that
+themselves contain underscores round-trip correctly. Matches are then
+grouped by that extracted core file name — not by the raw search string —
+into one `FileStageResult` per distinct underlying file, because a broad
+substring search can otherwise conflate two different files that merely
+share a search term. Six stages are recognized (Preprocessor, Validation,
+Normalization, Delta, Transmission, Outbound); a file's result only
+includes the stages it actually has matches for (no fixed/padded pipeline),
+ordered by each stage's earliest observed start time, since not every file
+goes through every stage (Outbound in particular is conditional). Each
 match is re-fetched via `-status` for accurate `Start-Time`/`Finish-Time`
-(the `-list` output doesn't carry timestamps). Every search upserts into
+(the `-list` output doesn't carry timestamps); these per-match `-status`
+calls run concurrently across a fixed 8-thread pool
+(`CompletableFuture.supplyAsync`) rather than sequentially, since Apache
+MINA SSHD safely multiplexes concurrent exec channels over one
+`ClientSession` — this cuts a multi-match search's latency to roughly the
+slowest single call instead of their sum. Every search upserts into
 `search-history.json` via `StageSearchHistoryRepository` (same
 load-once/write-through pattern as `EnvironmentRepository`, keyed on
-environment + filename so re-searching the same file refreshes one row
-instead of appending a duplicate).
+environment + query so re-searching the same query refreshes one row
+instead of appending a duplicate) — the frontend surfaces the last 10 rows
+as a persistent sidebar rather than a dropdown, so recent searches survive
+a reconnect/reload without retyping.
 
 `YarnService` also exposes `yarn node -list -all`, `yarn queue -status`,
 `yarn applicationattempt -list`, and `yarn container -list` for further EMR
 cluster exploration beyond the core list/status/kill set; the latter two
 return raw text rather than a parsed model, since attempt/container output
 shape varies more across Hadoop versions than application list/status does.
+
+The Applications view groups results into Running/Finished/Failed/Killed
+sections (Running always expanded, since it's the one that matters most
+moment-to-moment; the others collapsible with a count badge), each
+paginated at 20 rows. Default sort is newest-first, using the sequence
+number embedded in the application ID (`application_<clusterTimestamp>_<sequence>`)
+as a fast proxy for submission order — `yarn application -list` carries no
+timestamp, so sorting by actual time would mean an extra `-status` call per
+row just to order the list, which doesn't scale once hundreds of
+applications are running. The kill action is omitted entirely (not merely
+disabled) for any application not in a killable state, and clicking a row
+navigates straight to Stage Tracker: the frontend mirrors
+`PipelineStage.extract`'s logic client-side
+(`core/extract-file-name.ts`) to derive the core file name from the
+application name without a round-trip, then opens (or replaces) that
+environment's Stage Tracker tab pre-searched on it.
 
 ### Log streaming
 
@@ -190,7 +224,13 @@ operation (list/upload/download) and closes it immediately after. Upload
 progress and multi-file selection are handled client-side (via
 `XMLHttpRequest.upload.onprogress` and the browser's native multi-file
 `<input>`/drag-and-drop), so the backend stays a stateless request/response
-API for this feature.
+API for this feature. A non-blank search query switches `list()` from a
+single-directory `readDir` into a depth-first `searchRecursive` walk of the
+current directory's subtree (depth-capped at 6, result-capped at 2000, an
+unreadable subtree is skipped rather than failing the whole search) — each
+match carries its full relative path so the UI can show where it actually
+lives and jump there on click, since a flat single-folder search wasn't
+useful once files started living a few levels deep.
 
 ## Persistence
 
