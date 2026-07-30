@@ -1,0 +1,27 @@
+server:
+  port: 8080
+  compression:
+    enabled: true
+
+spring:
+  application:
+    name: batchpilot-backend
+  servlet:
+    multipart:
+      max-file-size: 2GB
+      max-request-size: 2GB
+
+batchpilot:
+  # Directory where BatchPilot keeps its local JSON persistence (environments.json, settings.json).
+  # Defaults to a "batchpilot" folder under the user's home directory.
+  data-dir: ${user.home}/.batchpilot
+  default-username: hadoop
+  presets:
+    - name: DEV
+    - name: UAT
+
+logging:
+  level:
+    root: INFO
+    com.batchpilot: INFO
+    org.apache.sshd: WARN

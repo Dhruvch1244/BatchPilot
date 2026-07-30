@@ -1,0 +1,113 @@
+# BatchPilot
+
+BatchPilot is an SSH environment manager, terminal, and file-transfer console for
+batch operations. It manages named environments (DEV, UAT, and any number of
+custom targets), connects to them over SSH using PuTTY `.ppk` private keys, and
+gives you a full browser-based terminal (xterm.js), a one-off "Quick Execute"
+command runner, and an SFTP-backed file manager — all through a Spring Boot
+backend and a React frontend.
+
+## Project structure
+
+```
+batchpilot/
+├── pom.xml                    # Maven parent (multi-module)
+├── backend/                   # Spring Boot backend (Maven module)
+│   ├── pom.xml
+│   └── src/main/java/com/batchpilot/
+│       ├── config/            # Spring configuration (CORS, WebSocket, properties)
+│       ├── controller/        # REST controllers
+│       ├── dto/                # Request/response payloads
+│       ├── exception/         # Global error handling
+│       ├── model/             # Domain models (Environment, AppSettings, FileEntry, ...)
+│       ├── repository/        # JSON file persistence (environments.json, settings.json)
+│       ├── service/           # Business logic (CRUD, quick execute, file manager)
+│       ├── ssh/               # SSH connection manager, PPK key loading
+│       └── websocket/         # Terminal WebSocket <-> PTY bridge
+├── frontend/                  # React + TypeScript + Vite frontend
+│   └── src/
+│       ├── api/                # REST client
+│       ├── components/         # Layout, Environments, Terminal, FileManager, QuickExecute, Settings
+│       ├── context/             # Global app state (environments, connections, settings)
+│       └── types/                # Shared TypeScript types
+└── docs/
+    └── ARCHITECTURE.md         # Architecture overview
+```
+
+## Prerequisites
+
+- Java 17+
+- Maven 3.9+
+- Node.js 18+ and npm
+
+## Build & run — backend
+
+```bash
+cd batchpilot
+mvn clean package -pl backend -am
+java -jar backend/target/batchpilot-backend.jar
+```
+
+The backend starts on **http://localhost:8080**. On first run it creates a data
+directory at `~/.batchpilot` (override with `--batchpilot.data-dir=/custom/path`)
+containing:
+
+- `environments.json` — persisted environments (seeded with DEV and UAT presets)
+- `settings.json` — persisted application settings
+
+Both files are loaded at startup and written through on every change — there is
+no unsaved in-memory-only state.
+
+## Build & run — frontend
+
+```bash
+cd batchpilot/frontend
+npm install
+npm run dev
+```
+
+The dev server starts on **http://localhost:5173** and proxies `/api` and `/ws`
+requests to the backend on port 8080 (see `vite.config.ts`). Start the backend
+first.
+
+To build a production bundle:
+
+```bash
+npm run build
+```
+
+This produces static assets in `frontend/dist/`, which can be served by any
+static file server or reverse-proxied alongside the backend.
+
+## Running both together
+
+1. `mvn clean package -pl backend -am && java -jar backend/target/batchpilot-backend.jar`
+2. In a second terminal: `cd frontend && npm install && npm run dev`
+3. Open http://localhost:5173
+
+## Configuration
+
+Backend settings live in `backend/src/main/resources/application.yml`:
+
+| Property | Default | Description |
+|---|---|---|
+| `server.port` | `8080` | Backend HTTP port |
+| `batchpilot.data-dir` | `${user.home}/.batchpilot` | Local JSON persistence directory |
+| `batchpilot.default-username` | `hadoop` | Fixed SSH username for every environment |
+| `spring.servlet.multipart.max-file-size` | `2GB` | Max single file upload size |
+
+Application-level settings (font size, theme, auto-reconnect, max tabs, upload
+limits) are editable from the Settings dialog in the UI and persisted to
+`settings.json`.
+
+## Security notes
+
+- PPK private key **contents are never transmitted, logged, or returned** by
+  any API — only the filesystem path to the `.ppk` file is stored and used.
+- The SSH username is fixed server-side (`hadoop` by default) and cannot be
+  overridden from the client.
+- CORS is restricted to `localhost` origins by default; adjust
+  `AppConfig#corsConfigurer` for other deployment topologies.
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for a deeper look at the
+system design.
