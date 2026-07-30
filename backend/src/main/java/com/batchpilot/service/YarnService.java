@@ -3,6 +3,7 @@ package com.batchpilot.service;
 import com.batchpilot.dto.YarnActionResponse;
 import com.batchpilot.exception.SshOperationException;
 import com.batchpilot.model.YarnApplication;
+import com.batchpilot.model.YarnNode;
 import com.batchpilot.ssh.SshConnectionManager;
 import org.apache.sshd.client.channel.ChannelExec;
 import org.apache.sshd.client.channel.ClientChannelEvent;
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -41,6 +43,9 @@ public class YarnService {
      * before any ID is interpolated into a shell command, since exec channels run through a
      * remote shell and are otherwise open to command injection. */
     private static final Pattern APPLICATION_ID_PATTERN = Pattern.compile("^application_\\d+_\\d{1,10}$");
+    private static final Pattern ATTEMPT_ID_PATTERN = Pattern.compile("^appattempt_\\d+_\\d{1,10}_\\d{1,10}$");
+    private static final Pattern QUEUE_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_.-]{1,128}$");
+    private static final long MAX_LOG_DOWNLOAD_BYTES = 5L * 1024 * 1024 * 1024; // 5 GB safety cap
 
     private final SshConnectionManager connectionManager;
 
@@ -73,10 +78,74 @@ public class YarnService {
         return runCommand(environmentId, command, LOGS_TIMEOUT_SECONDS);
     }
 
+    /**
+     * Streams full (or filtered/size-capped) logs straight to {@code out} — no in-memory
+     * buffering — so multi-gigabyte YARN logs don't have to fit in heap. {@code sizeLimitMb}
+     * is applied via `tail -c`, taking the *last* N MiB (logs can run past 24 GB), and an
+     * optional grep pattern narrows further (e.g. errors only). Both are applied remotely,
+     * before anything crosses the wire.
+     */
+    public void streamLogDownload(String environmentId, String applicationId, Long sizeLimitMb,
+                                   String grepPattern, boolean caseInsensitiveGrep, OutputStream out) {
+        requireValidApplicationId(applicationId);
+        long limitMb = (sizeLimitMb != null && sizeLimitMb > 0) ? sizeLimitMb : 1024L;
+        long limitBytes = Math.min(limitMb * 1024 * 1024, MAX_LOG_DOWNLOAD_BYTES);
+
+        StringBuilder command = new StringBuilder("yarn logs -applicationId ")
+                .append(applicationId)
+                .append(" 2>&1 | tail -c ")
+                .append(limitBytes);
+        if (grepPattern != null && !grepPattern.isBlank()) {
+            command.append(" | grep ").append(caseInsensitiveGrep ? "-i " : "").append(shellQuote(grepPattern.strip()));
+        }
+        runCommandStreaming(environmentId, command.toString(), LOGS_TIMEOUT_SECONDS, out);
+    }
+
+    public List<YarnNode> listNodes(String environmentId) {
+        String output = runCommand(environmentId, "yarn node -list -all", COMMAND_TIMEOUT_SECONDS);
+        return parseNodes(output);
+    }
+
+    /** Raw `yarn queue -status <queue>` output — key:value shaped like application -status, but
+     * queue metrics vary enough across Hadoop versions that returning the text as-is is more
+     * reliable than a brittle field-by-field parse. */
+    public String queueStatus(String environmentId, String queueName) {
+        String queue = requireValid(queueName, QUEUE_NAME_PATTERN, "queue name");
+        return runCommand(environmentId, "yarn queue -status " + queue, COMMAND_TIMEOUT_SECONDS);
+    }
+
+    /** Raw `yarn applicationattempt -list <appId>` output. */
+    public String applicationAttempts(String environmentId, String applicationId) {
+        requireValidApplicationId(applicationId);
+        return runCommand(environmentId, "yarn applicationattempt -list " + applicationId, COMMAND_TIMEOUT_SECONDS);
+    }
+
+    /** Raw `yarn container -list <attemptId>` output. */
+    public String containers(String environmentId, String attemptId) {
+        if (attemptId == null || !ATTEMPT_ID_PATTERN.matcher(attemptId).matches()) {
+            throw new SshOperationException("Invalid YARN application attempt ID: " + attemptId);
+        }
+        return runCommand(environmentId, "yarn container -list " + attemptId, COMMAND_TIMEOUT_SECONDS);
+    }
+
     private void requireValidApplicationId(String applicationId) {
         if (applicationId == null || !APPLICATION_ID_PATTERN.matcher(applicationId).matches()) {
             throw new SshOperationException("Invalid YARN application ID: " + applicationId);
         }
+    }
+
+    private String requireValid(String value, Pattern pattern, String label) {
+        String trimmed = value == null ? "" : value.strip();
+        if (!pattern.matcher(trimmed).matches()) {
+            throw new SshOperationException("Invalid " + label + ": " + value);
+        }
+        return trimmed;
+    }
+
+    /** Wraps in single quotes for safe interpolation into a remote shell command, escaping any
+     * embedded single quotes — standard `'\''` POSIX-shell technique. */
+    private String shellQuote(String value) {
+        return "'" + value.replace("'", "'\\''") + "'";
     }
 
     private String runCommand(String environmentId, String command, int timeoutSeconds) {
@@ -100,6 +169,53 @@ public class YarnService {
         String out = stdout.toString(StandardCharsets.UTF_8);
         String err = stderr.toString(StandardCharsets.UTF_8);
         return err.isBlank() ? out : out + "\n" + err;
+    }
+
+    /** Same as {@link #runCommand}, but writes stdout directly to {@code out} as it arrives
+     * instead of buffering it — required for log downloads that can be gigabytes. */
+    private void runCommandStreaming(String environmentId, String command, int timeoutSeconds, OutputStream out) {
+        ClientSession session = connectionManager.getActiveSession(environmentId);
+        try (ChannelExec channel = session.createExecChannel(command)) {
+            channel.setOut(out);
+            channel.setErr(out);
+            channel.open().verify(10, TimeUnit.SECONDS);
+            Set<ClientChannelEvent> events = channel.waitFor(
+                    EnumSet.of(ClientChannelEvent.CLOSED), TimeUnit.SECONDS.toMillis(timeoutSeconds));
+            if (events.contains(ClientChannelEvent.TIMEOUT)) {
+                throw new SshOperationException("yarn command timed out after " + timeoutSeconds + "s: " + command);
+            }
+        } catch (SshOperationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SshOperationException("yarn command failed: " + e.getMessage(), e);
+        }
+    }
+
+    private List<YarnNode> parseNodes(String output) {
+        List<YarnNode> nodes = new ArrayList<>();
+        for (String rawLine : output.split("\n", -1)) {
+            String line = rawLine.strip();
+            if (line.isEmpty() || line.startsWith("Total Nodes") || line.startsWith("Node-Id")) {
+                continue;
+            }
+            String[] cols = rawLine.split("\t");
+            if (cols.length < 4) {
+                continue;
+            }
+            Integer running;
+            try {
+                running = Integer.parseInt(cols[3].strip());
+            } catch (NumberFormatException e) {
+                running = null;
+            }
+            nodes.add(YarnNode.builder()
+                    .nodeId(cols[0].strip())
+                    .nodeState(cols[1].strip())
+                    .nodeHttpAddress(cols[2].strip())
+                    .runningContainers(running)
+                    .build());
+        }
+        return nodes;
     }
 
     private List<YarnApplication> parseList(String output) {

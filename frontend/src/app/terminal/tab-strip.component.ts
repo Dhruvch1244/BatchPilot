@@ -6,7 +6,8 @@ const TAB_ICONS: Record<TabType, IconName> = {
   terminal: 'terminal',
   files: 'folder',
   applications: 'activity',
-  'stage-tracker': 'file-search'
+  'stage-tracker': 'file-search',
+  's3-transfer': 'download'
 };
 
 @Component({

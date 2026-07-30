@@ -12,6 +12,7 @@ import { SettingsModalComponent } from './settings/settings-modal.component';
 import { EnvironmentFormModalComponent } from './environments/environment-form-modal.component';
 import { ApplicationsPanelComponent } from './applications/applications-panel.component';
 import { StageTrackerPanelComponent } from './stage-tracker/stage-tracker-panel.component';
+import { S3TransferPanelComponent } from './s3-transfer/s3-transfer-panel.component';
 
 export type EnvironmentFormState = { mode: 'create' } | { mode: 'edit'; environment: Environment } | null;
 
@@ -35,7 +36,8 @@ function nextTabId(): string {
     SettingsModalComponent,
     EnvironmentFormModalComponent,
     ApplicationsPanelComponent,
-    StageTrackerPanelComponent
+    StageTrackerPanelComponent,
+    S3TransferPanelComponent
   ],
   templateUrl: './app.component.html'
 })
@@ -77,6 +79,10 @@ export class AppComponent implements OnInit {
 
   openStageTrackerTab(environmentId: string): void {
     this.openSingletonTab(environmentId, 'stage-tracker', (env) => `${env?.name ?? 'Stage Tracker'} — Stages`);
+  }
+
+  openS3TransferTab(environmentId: string): void {
+    this.openSingletonTab(environmentId, 's3-transfer', (env) => `${env?.name ?? 'S3 Transfer'} — Staging`);
   }
 
   private openSingletonTab(environmentId: string, type: Tab['type'], titleFor: (env?: Environment) => string): void {
@@ -121,6 +127,11 @@ export class AppComponent implements OnInit {
   openStageTrackerForSelected(): void {
     const envId = this.state.selectedEnvironmentId();
     if (envId) this.openStageTrackerTab(envId);
+  }
+
+  openS3TransferForSelected(): void {
+    const envId = this.state.selectedEnvironmentId();
+    if (envId) this.openS3TransferTab(envId);
   }
 
   openCreateForm(): void {

@@ -62,6 +62,14 @@ import { IconComponent } from '../shared/icon.component';
           <app-icon name="file-search" size="14" />
           Stage Tracker
         </button>
+        <button
+          class="btn"
+          [disabled]="!state.selectedEnvironment() || !connected()"
+          (click)="openS3Transfer.emit()"
+        >
+          <app-icon name="download" size="14" />
+          S3 Transfer
+        </button>
         <div class="toolbar-sep"></div>
         <button class="btn icon-btn" title="Settings" (click)="openSettings.emit()">
           <app-icon name="settings" size="16" />
@@ -77,6 +85,7 @@ export class ToolbarComponent {
   @Output() openSettings = new EventEmitter<void>();
   @Output() openApplications = new EventEmitter<void>();
   @Output() openStageTracker = new EventEmitter<void>();
+  @Output() openS3Transfer = new EventEmitter<void>();
 
   constructor(public state: AppStateService) {}
 

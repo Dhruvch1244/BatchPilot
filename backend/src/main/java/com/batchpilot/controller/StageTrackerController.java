@@ -22,8 +22,8 @@ public class StageTrackerController {
     }
 
     @GetMapping("/api/stage-tracker/history")
-    public List<StageSearchHistoryEntry> history() {
-        return stageTrackerService.history();
+    public List<StageSearchHistoryEntry> history(@RequestParam(defaultValue = "10") int limit) {
+        return stageTrackerService.history(limit);
     }
 
     @DeleteMapping("/api/stage-tracker/history")

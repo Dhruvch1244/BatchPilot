@@ -117,9 +117,47 @@ Validation, Normalization, Daaf, Transmission) via
 `PipelineStage.matchApplicationName` — a keyword-in-name heuristic, not a
 lookup against the pipeline's actual status database (not wired up). Each
 match is re-fetched via `-status` for accurate `Start-Time`/`Finish-Time`
-(the `-list` output doesn't carry timestamps). Every search is persisted to
-`search-history.json` via `StageSearchHistoryRepository`, following the same
-load-once/write-through pattern as `EnvironmentRepository`.
+(the `-list` output doesn't carry timestamps). Every search upserts into
+`search-history.json` via `StageSearchHistoryRepository` (same
+load-once/write-through pattern as `EnvironmentRepository`, keyed on
+environment + filename so re-searching the same file refreshes one row
+instead of appending a duplicate).
+
+`YarnService` also exposes `yarn node -list -all`, `yarn queue -status`,
+`yarn applicationattempt -list`, and `yarn container -list` for further EMR
+cluster exploration beyond the core list/status/kill set; the latter two
+return raw text rather than a parsed model, since attempt/container output
+shape varies more across Hadoop versions than application list/status does.
+
+### Log streaming
+
+`YarnController#downloadLogs` never buffers a log in memory — `yarn logs`
+output can run past 24 GB. The exec channel's stdout is wired directly to the
+HTTP response's `OutputStream` (`StreamingResponseBody`, the same pattern
+`FileManagerController#download` uses for SFTP downloads), with size-capping
+(`tail -c <n>M`, applied remotely) and an optional grep filter both baked
+into the command string before it runs — so filtering happens on the remote
+host, not after gigabytes have already crossed the wire. The grep pattern is
+shell-quoted (`'...'` with embedded-quote escaping) rather than validated
+against an allowlist, since arbitrary search text is the whole point here;
+the application ID feeding the rest of the command is still validated
+against YARN's ID format first.
+
+## S3 vendor-staging transfer
+
+`S3TransferService` builds a fixed-shape `aws s3 cp
+s3://$S3_BUCKET/daaf-staging/<vendor>/<fileName>.<type>.<YYYYMMDD>` command
+and executes it by delegating to `QuickExecuteService` — no separate exec
+path. `$S3_BUCKET` is left as a literal `$`-reference in the command string
+so the *remote* shell expands it from whatever is configured in that
+environment; this service never resolves it itself. Every piece that lands
+in the command (vendor name, file name, file type, date, optional extra
+arguments) is checked against a strict character allowlist first — same
+reasoning as `YarnService`'s application-ID validation: this runs through a
+real remote shell, so anything not validated is a command-injection vector.
+`VendorRepository` persists vendor names to `vendors.json` (flat, deduped,
+alphabetical) — a successful transfer auto-saves its vendor name, so there's
+no separate "save vendor" action.
 
 ## File manager
 
@@ -145,6 +183,23 @@ All components are standalone (no `NgModule`s); state is signal-based rather
 than a service layered over RxJS `BehaviorSubject`s, so templates re-render
 automatically on change with no manual subscription management.
 
+**Tab-content sizing (`.tab-panel > *` in `styles.css`).** Each tab body
+(`app-terminal-tab`, `app-file-manager-panel`, `app-applications-panel`, ...)
+is a standalone component used directly as a flex child of `.tab-panel`.
+Angular never gives a component's own host element a `display`/`flex` value
+— only whatever's inside its template root gets that — so without an
+explicit rule targeting the host, it defaults to `display: inline` /
+`height: auto` and sizes to its *content* instead of the space actually
+available. For most tabs that was just an invisible overflow; for the
+terminal it was actively harmful: `FitAddon.fit()` measures the (wrongly
+content-sized) host, resizes xterm's canvas to match, which grows the
+content, which grows the auto-sized host again — an unbounded feedback loop
+on every fit (tab switch, window resize, settings change). One global rule,
+`.tab-panel > * { display: flex; flex-direction: column; flex: 1; min-height:
+0; min-width: 0; }`, pins every tab-content component's host to the panel's
+actual bounded size and fixes it for every tab type at once, present and
+future — no per-component `:host` rule needed.
+
 - **`core/models.ts`** — shared TypeScript types mirroring the backend DTOs.
 - **`core/api.service.ts`** — thin `HttpClient` wrapper, one method per REST
   endpoint; file uploads use `HttpClient`'s native `reportProgress` events
@@ -169,14 +224,22 @@ automatically on change with no manual subscription management.
   (xterm 4.x has no writable `.options`, unlike 5.x) over the settings
   signal, and to tab activation via `ngOnChanges`.
 - **`file-manager/`**, **`quick-execute/`**, **`applications/`**,
-  **`stage-tracker/`**, **`settings/`**, **`environments/`** — one component
-  per feature area, each talking to the backend through `ApiService` (or
-  `AppStateService` where the action needs to update shared state).
+  **`stage-tracker/`**, **`s3-transfer/`**, **`settings/`**,
+  **`environments/`** — one component per feature area, each talking to the
+  backend through `ApiService` (or `AppStateService` where the action needs
+  to update shared state).
 - **`shared/icon.component.ts`** — a single `<app-icon name="...">` component
   rendering a small hand-maintained set of inline SVG (Lucide-style, 24x24,
   stroke-based) icons, used everywhere the UI previously used unicode glyphs
   (✎, ✕, 📁, ...). No icon font or external asset — every icon inherits
   `currentColor`, so it themes for free.
+- **`shared/logs-modal.component.ts`** — shared between `applications/` and
+  `stage-tracker/`: a live preview (last 500 lines, with Errors/Warnings
+  presets or a custom grep filter, applied client-side against the preview
+  text) plus a download link that points straight at the streaming
+  size/grep-filtered backend endpoint — a plain `<a download>`, not a
+  fetch-then-blob, so a multi-gigabyte download is never held in browser
+  memory either.
 
 ## Visual design
 

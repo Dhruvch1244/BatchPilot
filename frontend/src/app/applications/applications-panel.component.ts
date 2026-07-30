@@ -4,14 +4,29 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { YarnApplication } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
+import { LogsModalComponent } from '../shared/logs-modal.component';
 
 const KILLABLE_STATES = new Set(['NEW', 'NEW_SAVING', 'SUBMITTED', 'ACCEPTED', 'RUNNING']);
 const AUTO_REFRESH_MS = 8000;
 
+// Matches the YARN application lifecycle order the user asked to sort by.
+const STATE_ORDER: Record<string, number> = {
+  NEW: 0,
+  NEW_SAVING: 1,
+  SUBMITTED: 2,
+  ACCEPTED: 3,
+  RUNNING: 4,
+  FINISHED: 5,
+  FAILED: 6,
+  KILLED: 7
+};
+
+type SortMode = 'state' | 'name' | 'user';
+
 @Component({
   selector: 'app-applications-panel',
   standalone: true,
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, IconComponent, LogsModalComponent],
   template: `
     <div class="applications-panel">
       <div class="applications-toolbar">
@@ -19,6 +34,14 @@ const AUTO_REFRESH_MS = 8000;
           <app-icon name="search" size="13" />
           <input class="file-manager-search" placeholder="Filter by name, user, or ID…" [(ngModel)]="filter" />
         </span>
+        <label class="form-field-inline">
+          <span>Sort</span>
+          <select [(ngModel)]="sortMode">
+            <option value="state">State</option>
+            <option value="name">Name</option>
+            <option value="user">User</option>
+          </select>
+        </label>
         <button class="btn" type="button" [disabled]="loading" (click)="load()">
           <app-icon name="refresh" size="14" [spin]="loading" />
           Refresh
@@ -33,11 +56,11 @@ const AUTO_REFRESH_MS = 8000;
       }
 
       <div class="applications-list">
-        @if (!loading && filtered().length === 0) {
+        @if (!loading && sorted().length === 0) {
           <div class="stage-empty">No YARN applications found.</div>
         }
-        @for (app of filtered(); track app.applicationId) {
-          <div class="app-card">
+        @for (app of sorted(); track app.applicationId) {
+          <div class="app-card app-card-clickable" (click)="openLogs(app)">
             <div class="app-card-info">
               <div class="app-card-name">{{ app.applicationName || app.applicationId }}</div>
               <div class="app-card-meta">
@@ -58,7 +81,7 @@ const AUTO_REFRESH_MS = 8000;
               type="button"
               title="Kill application"
               [disabled]="!isKillable(app) || killing.has(app.applicationId)"
-              (click)="kill(app)"
+              (click)="kill(app, $event)"
             >
               <app-icon name="stop" size="15" />
             </button>
@@ -66,6 +89,10 @@ const AUTO_REFRESH_MS = 8000;
         }
       </div>
     </div>
+
+    @if (logsFor) {
+      <app-logs-modal [environmentId]="environmentId" [applicationId]="logsFor" (close)="logsFor = null" />
+    }
   `
 })
 export class ApplicationsPanelComponent implements OnInit, OnDestroy {
@@ -75,7 +102,9 @@ export class ApplicationsPanelComponent implements OnInit, OnDestroy {
   loading = false;
   error: string | null = null;
   filter = '';
+  sortMode: SortMode = 'state';
   killing = new Set<string>();
+  logsFor: string | null = null;
   private timer?: ReturnType<typeof setInterval>;
 
   constructor(private api: ApiService) {}
@@ -100,8 +129,24 @@ export class ApplicationsPanelComponent implements OnInit, OnDestroy {
     );
   }
 
+  sorted(): YarnApplication[] {
+    const list = [...this.filtered()];
+    if (this.sortMode === 'name') {
+      list.sort((a, b) => a.applicationName.localeCompare(b.applicationName));
+    } else if (this.sortMode === 'user') {
+      list.sort((a, b) => a.user.localeCompare(b.user));
+    } else {
+      list.sort((a, b) => (STATE_ORDER[a.state] ?? 99) - (STATE_ORDER[b.state] ?? 99));
+    }
+    return list;
+  }
+
   isKillable(app: YarnApplication): boolean {
     return KILLABLE_STATES.has(app.state);
+  }
+
+  openLogs(app: YarnApplication): void {
+    this.logsFor = app.applicationId;
   }
 
   async load(): Promise<void> {
@@ -116,7 +161,8 @@ export class ApplicationsPanelComponent implements OnInit, OnDestroy {
     }
   }
 
-  async kill(app: YarnApplication): Promise<void> {
+  async kill(app: YarnApplication, event: Event): Promise<void> {
+    event.stopPropagation();
     if (!window.confirm(`Kill application "${app.applicationName || app.applicationId}"?`)) return;
     this.killing.add(app.applicationId);
     try {

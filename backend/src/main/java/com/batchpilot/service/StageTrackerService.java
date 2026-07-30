@@ -98,8 +98,9 @@ public class StageTrackerService {
                 .build();
     }
 
-    public List<StageSearchHistoryEntry> history() {
-        return historyRepository.findAll();
+    public List<StageSearchHistoryEntry> history(int limit) {
+        List<StageSearchHistoryEntry> all = historyRepository.findAll();
+        return all.subList(0, Math.min(limit, all.size()));
     }
 
     public void clearHistory() {

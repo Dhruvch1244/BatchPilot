@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { PipelineStage, StageGroup, StageMatch, StageSearchHistoryEntry, StageSearchResult } from '../core/models';
 import { IconComponent, IconName } from '../shared/icon.component';
+import { LogsModalComponent } from '../shared/logs-modal.component';
 
 const KILLABLE_STATES = new Set(['NEW', 'NEW_SAVING', 'SUBMITTED', 'ACCEPTED', 'RUNNING']);
 const RUNNING_STATES = new Set(['NEW', 'NEW_SAVING', 'SUBMITTED', 'ACCEPTED', 'RUNNING']);
@@ -32,7 +33,7 @@ function formatDuration(ms: number): string {
 @Component({
   selector: 'app-stage-tracker-panel',
   standalone: true,
-  imports: [FormsModule, DatePipe, NgTemplateOutlet, IconComponent],
+  imports: [FormsModule, DatePipe, NgTemplateOutlet, IconComponent, LogsModalComponent],
   template: `
     <div class="stage-tracker-panel">
       <div class="stage-search-bar">
@@ -45,23 +46,31 @@ function formatDuration(ms: number): string {
             (keydown.enter)="search()"
           />
         </span>
+        @if (history.length > 0) {
+          <div class="history-dropdown">
+            <button class="btn" type="button" (click)="historyOpen = !historyOpen">
+              <app-icon name="history" size="14" />
+              Recent
+              <app-icon [name]="historyOpen ? 'chevron-up' : 'chevron-down'" size="13" />
+            </button>
+            @if (historyOpen) {
+              <div class="history-dropdown-panel">
+                @for (h of history; track h.id) {
+                  <button class="history-dropdown-item" type="button" [title]="h.environmentName" (click)="rerun(h)">
+                    <app-icon name="file-search" size="13" />
+                    <span class="history-dropdown-name">{{ h.filename }}</span>
+                    <span class="history-dropdown-count">{{ h.matchCount }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
         <button class="btn btn-primary" type="button" [disabled]="searching || !query.trim()" (click)="search()">
           <app-icon name="file-search" size="14" />
           Search
         </button>
       </div>
-
-      @if (history.length > 0) {
-        <div class="stage-history">
-          @for (h of history; track h.id) {
-            <button class="stage-history-chip" type="button" [title]="h.environmentName" (click)="rerun(h)">
-              <app-icon name="history" size="11" />
-              {{ h.filename }}
-              <span>({{ h.matchCount }})</span>
-            </button>
-          }
-        </div>
-      }
 
       @if (error) {
         <div class="form-error">{{ error }}</div>
@@ -116,7 +125,7 @@ function formatDuration(ms: number): string {
       }
 
       <ng-template #matchRow let-m>
-        <div class="app-card">
+        <div class="app-card app-card-clickable" title="Click to view logs" (click)="openLogs(m)">
           <div class="app-card-info">
             <div class="app-card-name">{{ m.applicationName }}</div>
             <div class="app-card-meta">
@@ -138,13 +147,17 @@ function formatDuration(ms: number): string {
             type="button"
             title="Kill application"
             [disabled]="!killable(m) || killing.has(m.applicationId)"
-            (click)="kill(m)"
+            (click)="kill(m, $event)"
           >
             <app-icon name="stop" size="15" />
           </button>
         </div>
       </ng-template>
     </div>
+
+    @if (logsFor) {
+      <app-logs-modal [environmentId]="environmentId" [applicationId]="logsFor" (close)="logsFor = null" />
+    }
   `
 })
 export class StageTrackerPanelComponent implements OnInit {
@@ -153,9 +166,11 @@ export class StageTrackerPanelComponent implements OnInit {
   query = '';
   result: StageSearchResult | null = null;
   history: StageSearchHistoryEntry[] = [];
+  historyOpen = false;
   searching = false;
   error: string | null = null;
   killing = new Set<string>();
+  logsFor: string | null = null;
 
   readonly duration = formatDuration;
 
@@ -175,6 +190,7 @@ export class StageTrackerPanelComponent implements OnInit {
 
   rerun(entry: StageSearchHistoryEntry): void {
     this.query = entry.filename;
+    this.historyOpen = false;
     this.search();
   }
 
@@ -211,7 +227,12 @@ export class StageTrackerPanelComponent implements OnInit {
     return result.stages.every((g) => g.matches.length === 0) && result.unclassifiedMatches.length === 0;
   }
 
-  async kill(match: StageMatch): Promise<void> {
+  openLogs(match: StageMatch): void {
+    this.logsFor = match.applicationId;
+  }
+
+  async kill(match: StageMatch, event: Event): Promise<void> {
+    event.stopPropagation();
     if (!window.confirm(`Kill application "${match.applicationName || match.applicationId}"?`)) return;
     this.killing.add(match.applicationId);
     try {

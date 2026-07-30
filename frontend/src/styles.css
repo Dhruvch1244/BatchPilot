@@ -8,10 +8,20 @@ html, body, app-root {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 13px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
+    "Segoe UI", "Helvetica Neue", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
+}
+
+h1, h2, h3 {
+  letter-spacing: -0.015em;
+  font-weight: 600;
 }
 
 button {
@@ -184,6 +194,8 @@ input, select, textarea {
   display: flex;
   align-items: center;
   gap: 6px;
+  overflow-x: auto;
+  min-width: 0;
 }
 
 .toolbar-sep {
@@ -480,6 +492,24 @@ textarea:focus-visible {
   flex-direction: column;
 }
 
+/* Every tab body is a standalone Angular component (app-terminal-tab,
+   app-file-manager-panel, ...) used directly as a flex child here. Angular
+   never gives a component's own host element a display/flex value — only
+   its inner template root does — so without this, the host defaults to
+   `display: inline` / `height: auto` and sizes to its *content* instead of
+   the available space. For the terminal that's actively harmful: FitAddon
+   measures that auto-grown height, resizes xterm's canvas to match, which
+   grows the content further, which grows the auto-sized host again — an
+   unbounded feedback loop on every fit(). Pinning the direct child to fill
+   the panel here fixes it for every tab type in one place. */
+.tab-panel > * {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
 .empty-state {
   flex: 1;
   display: flex;
@@ -720,14 +750,14 @@ textarea:focus-visible {
 }
 
 .quick-execute-command {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   color: var(--accent);
   margin-bottom: 4px;
   word-break: break-all;
 }
 
 .quick-execute-output {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-word;
@@ -797,7 +827,7 @@ textarea:focus-visible {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   padding: 6px 10px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 .input-with-icon {
@@ -862,10 +892,16 @@ textarea:focus-visible {
   transition: width 0.15s;
 }
 
+.file-manager-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  position: relative;
+}
+
 .file-table {
   width: 100%;
   border-collapse: collapse;
-  overflow-y: auto;
 }
 
 .file-table th {
@@ -1004,6 +1040,39 @@ textarea:focus-visible {
   box-shadow: var(--shadow-sm);
 }
 
+.app-card-clickable {
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.app-card-clickable:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.form-field-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-field-inline span {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.form-field-inline select {
+  background: var(--bg-app);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+
 .app-card-info {
   flex: 1;
   min-width: 0;
@@ -1026,7 +1095,7 @@ textarea:focus-visible {
 }
 
 .app-card-meta code {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 .app-state-badge {
@@ -1084,29 +1153,59 @@ textarea:focus-visible {
   border-radius: var(--radius-md);
 }
 
-.stage-history {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.history-dropdown {
+  position: relative;
 }
 
-.stage-history-chip {
-  display: inline-flex;
+.history-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 260px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  gap: 2px;
+}
+
+.history-dropdown-item {
+  display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 8px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.history-dropdown-item:hover {
+  background: var(--bg-hover);
+}
+
+.history-dropdown-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-dropdown-count {
+  font-size: 10px;
+  font-weight: 600;
   color: var(--text-dim);
   background: var(--bg-panel-alt);
-  border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 4px 10px;
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-
-.stage-history-chip:hover {
-  background: var(--bg-hover);
-  color: var(--text);
+  padding: 1px 6px;
 }
 
 .run-card {
@@ -1129,7 +1228,7 @@ textarea:focus-visible {
 
 .run-card-title {
   font-weight: 600;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 12px;
   color: var(--text-dim);
 }
