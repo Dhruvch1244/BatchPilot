@@ -114,24 +114,26 @@ by any static file server or reverse-proxied alongside the backend.
     `test` target in `angular.json` and `tsconfig.spec.json`, eliminating
     the whole subtree rather than pinning `flatted` to whatever ancient
     version happened to be mirrored.
-  - Low-level utility packages that show up multiple times at different
-    versions in the tree (e.g. `brace-expansion`, pulled in by `minimatch`
-    at both `^1.1.7` and `^2.0.2` via different tools' internal glob
-    matching) are worth consolidating to one `overrides` pin even before
-    they've actually failed — one resolvable version everywhere instead of
-    several is strictly safer against a corporate registry that's only
-    mirrored one specific release.
-  - Sometimes even that isn't enough: `enhanced-resolve` (a hard, non-optional
-    dependency of `webpack`, itself a hard dependency of
-    `@angular-devkit/build-angular`) has no old-but-compatible version to
-    fall back to — only a genuinely current `^5.17.1` release works, and no
-    `overrides` trick fixes a registry that simply hasn't mirrored one. If
-    you hit that, it's a registry configuration problem, not a project one:
-    check `npm config get registry` and every `.npmrc` in scope (project,
-    user, global) for a registry URL pointed at a narrow/curated feed (e.g.
-    one literally named `npm-prereleases`) instead of your org's
-    general-purpose full npm mirror, and get the correct URL from your
-    platform/Artifactory team.
+  - Don't pin a version speculatively "just in case" without confirming it's
+    actually on your registry first (an earlier revision of this project did
+    exactly that for `brace-expansion`, forcing a version that turned out not
+    to exist there at all — an `ETARGET` error, not `403`, but the same root
+    cause: guessing instead of checking `<your-registry>/<package-name>/`).
+  - Even a version mismatch against a package's own stated peer/dependency
+    range isn't automatically fatal. `enhanced-resolve` is a hard,
+    non-optional dependency of `webpack`, itself a hard dependency of
+    `@angular-devkit/build-angular` — `webpack` declares it needs
+    `enhanced-resolve@^5.17.1`, but this project pins it to `4.5.0` via
+    `overrides` anyway. That's safe here specifically because Angular 17's
+    `application`/`dev-server` builders (what `ng build`/`ng serve` use in
+    this project) are esbuild/Vite-based and never actually execute
+    webpack's code paths — `webpack` and `enhanced-resolve` sit in
+    `node_modules` unused. Verified end-to-end (`ng build`, `ng serve`, and
+    a full SSH-backed session in both themes) with zero regressions before
+    relying on this. Don't assume the same holds for every mismatched pin —
+    check whether the code path that needs the "real" version is actually
+    reachable in how you invoke the tool before trusting an override like
+    this one.
 - **xterm.js pinned to the old unscoped `xterm` package, not `@xterm/xterm`**
   — xterm.js renamed its npm scope starting at v5.0 (`xterm` →
   `@xterm/xterm`, `xterm-addon-*` → `@xterm/addon-*`); this project uses

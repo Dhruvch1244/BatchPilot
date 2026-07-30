@@ -32,6 +32,6 @@
   },
   "overrides": {
     "postcss": "8.4.21",
-    "brace-expansion": "2.1.4"
+    "enhanced-resolve": "4.5.0"
   }
 }
