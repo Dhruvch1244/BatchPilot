@@ -8,10 +8,12 @@ import {
   EnvironmentRequest,
   FileEntry,
   QuickExecuteResult,
+  S3CopyRequest,
   StageSearchHistoryEntry,
   StageSearchResult,
   YarnActionResponse,
-  YarnApplication
+  YarnApplication,
+  YarnNode
 } from './models';
 
 export interface UploadProgress {
@@ -122,6 +124,54 @@ export class ApiService {
       `/api/environments/${environmentId}/yarn/applications/${applicationId}/kill`,
       {}
     );
+  }
+
+  getYarnLogs(environmentId: string, applicationId: string, lines?: number): Observable<{ logs: string }> {
+    let params = new HttpParams();
+    if (lines) params = params.set('lines', lines);
+    return this.http.get<{ logs: string }>(
+      `/api/environments/${environmentId}/yarn/applications/${applicationId}/logs`,
+      { params }
+    );
+  }
+
+  yarnLogsDownloadUrl(environmentId: string, applicationId: string, sizeLimitMb: number, grep?: string, caseInsensitive = true): string {
+    let params = new HttpParams().set('sizeLimitMb', sizeLimitMb).set('caseInsensitive', caseInsensitive);
+    if (grep) params = params.set('grep', grep);
+    return `/api/environments/${environmentId}/yarn/applications/${applicationId}/logs/download?${params.toString()}`;
+  }
+
+  listYarnNodes(environmentId: string): Observable<YarnNode[]> {
+    return this.http.get<YarnNode[]>(`/api/environments/${environmentId}/yarn/nodes`);
+  }
+
+  yarnQueueStatus(environmentId: string, queueName: string): Observable<{ output: string }> {
+    return this.http.get<{ output: string }>(`/api/environments/${environmentId}/yarn/queues/${queueName}`);
+  }
+
+  yarnApplicationAttempts(environmentId: string, applicationId: string): Observable<{ output: string }> {
+    return this.http.get<{ output: string }>(`/api/environments/${environmentId}/yarn/applications/${applicationId}/attempts`);
+  }
+
+  yarnContainers(environmentId: string, attemptId: string): Observable<{ output: string }> {
+    return this.http.get<{ output: string }>(`/api/environments/${environmentId}/yarn/attempts/${attemptId}/containers`);
+  }
+
+  // ---------- S3 vendor-staging transfer ----------
+  listVendors(): Observable<string[]> {
+    return this.http.get<string[]>('/api/vendors');
+  }
+
+  addVendor(name: string): Observable<string[]> {
+    return this.http.post<string[]>('/api/vendors', { name });
+  }
+
+  removeVendor(name: string): Observable<string[]> {
+    return this.http.delete<string[]>(`/api/vendors/${encodeURIComponent(name)}`);
+  }
+
+  runS3Transfer(environmentId: string, request: S3CopyRequest): Observable<QuickExecuteResult> {
+    return this.http.post<QuickExecuteResult>(`/api/environments/${environmentId}/s3-transfer`, request);
   }
 
   // ---------- File stage tracker ----------

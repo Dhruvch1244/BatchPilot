@@ -5,18 +5,15 @@ import { ApiService } from '../core/api.service';
 import { AppStateService } from '../core/app-state.service';
 import { QuickExecuteResult } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
+import { ModalComponent } from '../shared/modal.component';
 
 @Component({
   selector: 'app-quick-execute-panel',
   standalone: true,
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, IconComponent, ModalComponent],
   template: `
-    <aside class="quick-execute-panel">
-      <div class="panel-header">
-        <span>Quick Execute</span>
-        <button class="icon-btn" type="button" (click)="close.emit()"><app-icon name="close" size="16" /></button>
-      </div>
-      <div class="panel-body">
+    <app-modal title="Quick Execute" [width]="600" (close)="close.emit()">
+      <div class="form">
         <label class="form-field">
           <span>Environment</span>
           <select [(ngModel)]="targetId">
@@ -38,6 +35,7 @@ import { IconComponent } from '../shared/icon.component';
         </label>
 
         <button class="btn btn-primary" [disabled]="running || !targetId || !command.trim()" (click)="run()">
+          <app-icon name="play" size="14" />
           {{ running ? 'Running…' : 'Run (Ctrl/Cmd+Enter)' }}
         </button>
 
@@ -71,7 +69,7 @@ import { IconComponent } from '../shared/icon.component';
           }
         </div>
       </div>
-    </aside>
+    </app-modal>
   `
 })
 export class QuickExecutePanelComponent implements OnInit {

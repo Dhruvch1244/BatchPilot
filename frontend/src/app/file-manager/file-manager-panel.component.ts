@@ -68,53 +68,55 @@ function formatSize(bytes: number): string {
         <div class="file-manager-loading">Loading…</div>
       }
 
-      @if (!loading && view === 'table') {
-        <table class="file-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>Name</th>
-              <th>Size</th>
-              <th>Modified</th>
-              <th>Permissions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (entry of entries; track entry.path) {
-              <tr [class.row-selected]="selected.has(entry.path)" (dblclick)="navigateInto(entry)">
-                <td>
-                  <input
-                    type="checkbox"
-                    [checked]="selected.has(entry.path)"
-                    (change)="toggleSelect(entry.path)"
-                  />
-                </td>
-                <td class="file-name-cell">
-                  <app-icon [name]="entry.directory ? 'folder' : 'file'" size="15" />
-                  {{ entry.name }}
-                </td>
-                <td>{{ entry.directory ? '—' : formatSize(entry.size) }}</td>
-                <td>{{ entry.lastModified ? (entry.lastModified | date: 'medium') : '—' }}</td>
-                <td>{{ entry.permissions }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
-
-      @if (!loading && view === 'grid') {
-        <div class="file-grid">
-          @for (entry of entries; track entry.path) {
-            <div
-              class="file-grid-item"
-              [class.row-selected]="selected.has(entry.path)"
-              (click)="toggleSelect(entry.path)"
-              (dblclick)="navigateInto(entry)"
-            >
-              <div class="file-grid-icon"><app-icon [name]="entry.directory ? 'folder' : 'file'" size="28" /></div>
-              <div class="file-grid-name">{{ entry.name }}</div>
-              @if (!entry.directory) {
-                <div class="file-grid-size">{{ formatSize(entry.size) }}</div>
+      @if (!loading) {
+        <div class="file-manager-content">
+          @if (view === 'table') {
+            <table class="file-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Name</th>
+                  <th>Size</th>
+                  <th>Modified</th>
+                  <th>Permissions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of entries; track entry.path) {
+                  <tr [class.row-selected]="selected.has(entry.path)" (dblclick)="navigateInto(entry)">
+                    <td>
+                      <input
+                        type="checkbox"
+                        [checked]="selected.has(entry.path)"
+                        (change)="toggleSelect(entry.path)"
+                      />
+                    </td>
+                    <td class="file-name-cell">
+                      <app-icon [name]="entry.directory ? 'folder' : 'file'" size="15" />
+                      {{ entry.name }}
+                    </td>
+                    <td>{{ entry.directory ? '—' : formatSize(entry.size) }}</td>
+                    <td>{{ entry.lastModified ? (entry.lastModified | date: 'medium') : '—' }}</td>
+                    <td>{{ entry.permissions }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <div class="file-grid">
+              @for (entry of entries; track entry.path) {
+                <div
+                  class="file-grid-item"
+                  [class.row-selected]="selected.has(entry.path)"
+                  (click)="toggleSelect(entry.path)"
+                  (dblclick)="navigateInto(entry)"
+                >
+                  <div class="file-grid-icon"><app-icon [name]="entry.directory ? 'folder' : 'file'" size="28" /></div>
+                  <div class="file-grid-name">{{ entry.name }}</div>
+                  @if (!entry.directory) {
+                    <div class="file-grid-size">{{ formatSize(entry.size) }}</div>
+                  }
+                </div>
               }
             </div>
           }

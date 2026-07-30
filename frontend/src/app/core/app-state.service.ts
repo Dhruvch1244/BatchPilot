@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   reconnectIntervalSeconds: 5,
   maxReconnectAttempts: 5,
   maxTabs: 10,
-  maxUploadSizeMb: 512
+  maxUploadSizeMb: 2048
 };
 
 /**

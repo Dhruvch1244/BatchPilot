@@ -75,9 +75,16 @@ public class StageSearchHistoryRepository {
         }
     }
 
+    /**
+     * Upserts by (environmentId, filename) — searching the same filename again refreshes
+     * the existing entry (new timestamp/match counts) rather than piling up duplicates,
+     * so the recent-searches list stays one row per filename.
+     */
     public void add(StageSearchHistoryEntry entry) {
         lock.writeLock().lock();
         try {
+            entries.removeIf(e -> e.getEnvironmentId().equals(entry.getEnvironmentId())
+                    && e.getFilename().equalsIgnoreCase(entry.getFilename()));
             entries.add(entry);
             entries.sort(Comparator.comparingLong(StageSearchHistoryEntry::getSearchedAt).reversed());
             if (entries.size() > MAX_ENTRIES) {

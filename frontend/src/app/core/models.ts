@@ -60,7 +60,7 @@ export interface QuickExecuteResult {
   executedAt: string;
 }
 
-export type TabType = 'terminal' | 'files' | 'applications' | 'stage-tracker';
+export type TabType = 'terminal' | 'files' | 'applications' | 'stage-tracker' | 's3-transfer';
 
 export interface Tab {
   id: string;
@@ -87,6 +87,25 @@ export interface YarnApplication {
 export interface YarnActionResponse {
   success: boolean;
   message: string;
+}
+
+export interface YarnNode {
+  nodeId: string;
+  nodeState: string;
+  nodeHttpAddress: string;
+  runningContainers: number | null;
+}
+
+// ---------- S3 vendor-staging transfer ----------
+export type S3FileType = 'out' | 'dif' | 'px';
+
+export interface S3CopyRequest {
+  sourcePath: string;
+  vendorName: string;
+  fileName: string;
+  fileType: S3FileType;
+  date: string;
+  extraArgs?: string;
 }
 
 // ---------- File stage tracker ----------

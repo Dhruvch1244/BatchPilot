@@ -6,6 +6,7 @@
     (openSettings)="settingsOpen = true"
     (openApplications)="openApplicationsForSelected()"
     (openStageTracker)="openStageTrackerForSelected()"
+    (openS3Transfer)="openS3TransferForSelected()"
   ></app-toolbar>
 
   <div class="app-body">
@@ -39,24 +40,26 @@
                 <app-file-manager-panel [environmentId]="tab.environmentId"></app-file-manager-panel>
               } @else if (tab.type === 'applications') {
                 <app-applications-panel [environmentId]="tab.environmentId"></app-applications-panel>
-              } @else {
+              } @else if (tab.type === 'stage-tracker') {
                 <app-stage-tracker-panel [environmentId]="tab.environmentId"></app-stage-tracker-panel>
+              } @else {
+                <app-s3-transfer-panel [environmentId]="tab.environmentId"></app-s3-transfer-panel>
               }
             </div>
           }
         </div>
       }
     </main>
-
-    @if (quickExecuteOpen) {
-      <app-quick-execute-panel
-        [environmentId]="state.selectedEnvironmentId()"
-        (close)="quickExecuteOpen = false"
-      ></app-quick-execute-panel>
-    }
   </div>
 
   <app-status-bar></app-status-bar>
+
+  @if (quickExecuteOpen) {
+    <app-quick-execute-panel
+      [environmentId]="state.selectedEnvironmentId()"
+      (close)="quickExecuteOpen = false"
+    ></app-quick-execute-panel>
+  }
 
   @if (settingsOpen) {
     <app-settings-modal (close)="settingsOpen = false"></app-settings-modal>

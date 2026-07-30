@@ -32,10 +32,11 @@ batchpilot/
 │       ├── terminal/           # Tab strip + xterm.js terminal component (WebSocket PTY bridge)
 │       ├── quick-execute/      # Quick Execute side panel
 │       ├── file-manager/       # File manager panel (browse/upload/download)
-│       ├── applications/       # YARN running-applications view (list/kill)
+│       ├── applications/       # YARN running-applications view (list/sort/kill)
 │       ├── stage-tracker/      # File pipeline stage tracker (search/kill/history)
+│       ├── s3-transfer/        # S3 vendor-staging command builder/runner
 │       ├── settings/           # Settings modal
-│       └── shared/             # Reusable modal + icon components
+│       └── shared/             # Reusable modal, icon, and logs-modal components
 └── docs/
     └── ARCHITECTURE.md         # Architecture overview
 ```
@@ -64,8 +65,9 @@ containing:
 - `environments.json` — persisted environments (seeded with DEV and UAT presets)
 - `settings.json` — persisted application settings
 - `search-history.json` — past File Stage Tracker searches (see below)
+- `vendors.json` — saved S3 vendor names (see "S3 vendor-staging transfer" below)
 
-All three files are loaded at startup and written through on every change —
+All four files are loaded at startup and written through on every change —
 there is no unsaved in-memory-only state.
 
 ## Build & run — frontend
@@ -199,16 +201,36 @@ same session Terminal/Quick Execute/File Manager already share:
 - **Applications** — lists every YARN application (`yarn application -list
   -appStates ALL`) with state, progress, and a kill action
   (`yarn application -kill <id>`) for anything not yet finished. Auto-refreshes
-  every 8 seconds.
+  every 8 seconds. Sortable by state (in YARN's own lifecycle order —
+  SUBMITTED → ACCEPTED → RUNNING → FINISHED → FAILED → KILLED), name, or user.
+  Clicking a row (not the kill button) opens its logs.
 - **Stage Tracker** — searches by filename and shows which YARN applications
   correspond to it, grouped into the five pipeline stages (Preprocessor,
   Validation, Normalization, Daaf, Transmission) with per-stage timing pulled
   from `yarn application -status` (`Start-Time`/`Finish-Time`) and a kill
-  action per match. A file can have multiple matches per stage (re-runs) —
-  every match is shown, not collapsed into one. Every search is appended to
-  `search-history.json` and surfaced as clickable chips in the panel; clicking
-  one re-runs a fresh search rather than replaying stale state, since
-  application status changes over time.
+  action per match. Clicking a match (by name or application ID — the
+  filename is what you actually know going in, so that's what's foregrounded)
+  opens its logs. A file can have multiple matches per stage (re-runs) —
+  every match is shown, not collapsed into one. Every search upserts into
+  `search-history.json` (searching the same filename again refreshes that one
+  entry instead of piling up duplicates) and surfaces as a "Recent" dropdown
+  capped at the 10 most recent unique filenames; picking one re-runs a fresh
+  search rather than replaying stale state, since application status changes
+  over time.
+- **Logs** — from either view, opening an application's logs gets a live
+  500-line preview (with one-click Errors/Warnings presets or a custom grep
+  filter) and a **Download** button. Logs can run past 24 GB, so the download
+  is never buffered in memory: pick how much to pull from the end (last
+  500 MB/1/2/5 GB) and an optional grep filter, both applied *on the remote
+  host* via `tail -c` / `grep` before anything crosses the wire, then streamed
+  straight through to a normal browser download (lands in your Downloads
+  folder like any other file).
+- **More YARN commands** — `yarn node -list -all` (cluster node health/
+  container counts), `yarn queue -status <queue>`, `yarn applicationattempt
+  -list <appId>`, and `yarn container -list <attemptId>` are exposed as REST
+  endpoints on `YarnController` (not all wired into a dedicated UI screen yet)
+  for further exploration of an EMR cluster beyond the core list/status/kill
+  set.
 
   **Stage classification is a v1 heuristic, not ground truth.** There is no
   connection wired up to the pipeline's own status database (a "Daaf DB")
@@ -225,6 +247,45 @@ same session Terminal/Quick Execute/File Manager already share:
   (`application_<timestamp>_<sequence>`) in `YarnService` before being
   interpolated into any shell command — exec channels run through a remote
   shell, so this guards against command injection via a crafted ID.
+
+## S3 vendor-staging transfer
+
+The **S3 Transfer** toolbar action builds and runs, over the environment's SSH
+session:
+
+```
+aws s3 cp <source file> s3://$S3_BUCKET/daaf-staging/<vendor_name>/<fileName>.<file-type>.<YYYYMMDD>
+```
+
+`$S3_BUCKET` is left unexpanded on purpose — the *remote* shell resolves it
+from whatever is set in that environment, this app never substitutes it.
+
+- **Source file** — either a path already on the environment (e.g. an EMR
+  box path, typed directly), or a local file attached from your computer
+  (any kind) — attaching one uploads it to the environment first (over the
+  same SFTP upload the File Manager uses, to a directory you choose,
+  `.` — the home directory — by default) and then uses that uploaded path as
+  the `aws s3 cp` source.
+- **Vendor** — a combo text input with autocomplete suggestions from
+  previously-used vendors (`vendors.json`, same load/write-through pattern as
+  the other JSON stores). A vendor is saved automatically the first time a
+  transfer using it succeeds — no separate "save" step — and can be removed
+  from the chip list underneath the input.
+- **Staged file name** — free text; this is the *destination* file name in
+  the `daaf-staging` path, independent of whatever the source file is
+  actually called.
+- **File type** — exactly `out`, `dif`, or `px`.
+- **Date** — a date picker defaulting to today, formatted to `YYYYMMDD` for
+  the command.
+- **Extra `aws cp` flags** — optional (e.g. `--sse AES256`), appended after
+  the destination.
+
+A live command preview shows exactly what will run before you click it. The
+vendor/file-name/file-type/date fields are validated against a strict
+character allowlist server-side (`S3TransferService`); the source path is
+shell-quoted instead (it has to accept arbitrary uploaded file names) — both
+for the same reason YARN application IDs are validated: this runs over a
+real remote shell, so anything not handled is a command-injection vector.
 
 ## Security notes
 
