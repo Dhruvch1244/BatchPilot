@@ -23,6 +23,11 @@ import java.util.List;
 @Service
 public class FileManagerService {
 
+    /** Search recurses into subdirectories rather than just the current one — capped so a
+     * search under a huge tree doesn't hang the request or the remote session forever. */
+    private static final int MAX_SEARCH_DEPTH = 6;
+    private static final int MAX_SEARCH_RESULTS = 2000;
+
     private final SshConnectionManager connectionManager;
 
     public FileManagerService(SshConnectionManager connectionManager) {
@@ -32,14 +37,17 @@ public class FileManagerService {
     public List<FileEntry> list(String environmentId, String remotePath, String searchQuery) {
         String path = normalize(remotePath);
         try (SftpClient sftp = openSftp(environmentId)) {
+            if (searchQuery != null && !searchQuery.isBlank()) {
+                List<FileEntry> results = new ArrayList<>();
+                searchRecursive(sftp, path, searchQuery.toLowerCase(), results, 0);
+                results.sort(Comparator.comparing(FileEntry::isDirectory).reversed()
+                        .thenComparing(FileEntry::getName, String.CASE_INSENSITIVE_ORDER));
+                return results;
+            }
             List<FileEntry> entries = new ArrayList<>();
             for (SftpClient.DirEntry dirEntry : sftp.readDir(path)) {
                 String name = dirEntry.getFilename();
                 if (".".equals(name) || "..".equals(name)) {
-                    continue;
-                }
-                if (searchQuery != null && !searchQuery.isBlank()
-                        && !name.toLowerCase().contains(searchQuery.toLowerCase())) {
                     continue;
                 }
                 entries.add(toFileEntry(path, dirEntry));
@@ -49,6 +57,38 @@ public class FileManagerService {
             return entries;
         } catch (IOException e) {
             throw new SshOperationException("Failed to list " + path + ": " + e.getMessage(), e);
+        }
+    }
+
+    /** Depth-first walk of {@code dirPath}, matching entry names (not full paths) against
+     * {@code queryLower}. A subtree that errors out (e.g. permission denied) is skipped
+     * rather than failing the whole search — one unreadable folder shouldn't hide matches
+     * found elsewhere. */
+    private void searchRecursive(SftpClient sftp, String dirPath, String queryLower, List<FileEntry> results, int depth) {
+        if (depth > MAX_SEARCH_DEPTH || results.size() >= MAX_SEARCH_RESULTS) {
+            return;
+        }
+        Iterable<SftpClient.DirEntry> children;
+        try {
+            children = sftp.readDir(dirPath);
+        } catch (IOException e) {
+            return;
+        }
+        for (SftpClient.DirEntry dirEntry : children) {
+            if (results.size() >= MAX_SEARCH_RESULTS) {
+                return;
+            }
+            String name = dirEntry.getFilename();
+            if (".".equals(name) || "..".equals(name)) {
+                continue;
+            }
+            boolean isDirectory = dirEntry.getAttributes().isDirectory();
+            if (name.toLowerCase().contains(queryLower)) {
+                results.add(toFileEntry(dirPath, dirEntry));
+            }
+            if (isDirectory) {
+                searchRecursive(sftp, joinPath(dirPath, name), queryLower, results, depth + 1);
+            }
         }
     }
 

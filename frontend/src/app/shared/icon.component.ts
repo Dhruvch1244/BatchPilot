@@ -17,6 +17,8 @@ export type IconName =
   | 'refresh'
   | 'chevron-down'
   | 'chevron-up'
+  | 'chevron-left'
+  | 'chevron-right'
   | 'clock'
   | 'check-circle'
   | 'alert-circle'
@@ -127,6 +129,12 @@ export type IconName =
         }
         @case ('chevron-up') {
           <polyline points="18 15 12 9 6 15"></polyline>
+        }
+        @case ('chevron-left') {
+          <polyline points="15 18 9 12 15 6"></polyline>
+        }
+        @case ('chevron-right') {
+          <polyline points="9 18 15 12 9 6"></polyline>
         }
         @case ('clock') {
           <circle cx="12" cy="12" r="10"></circle>

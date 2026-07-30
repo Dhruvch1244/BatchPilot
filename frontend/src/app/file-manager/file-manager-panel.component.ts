@@ -39,18 +39,33 @@ function formatSize(bytes: number): string {
         <input class="file-manager-path" [(ngModel)]="path" (keydown.enter)="load()" />
         <span class="input-with-icon">
           <app-icon name="search" size="13" />
-          <input class="file-manager-search" placeholder="Search…" [(ngModel)]="search" (ngModelChange)="load()" />
+          <input
+            class="file-manager-search"
+            placeholder="Search this folder and subfolders…"
+            [(ngModel)]="search"
+            (ngModelChange)="load()"
+          />
         </span>
         <button class="btn" type="button" (click)="fileInput.click()">Upload</button>
         <input #fileInput type="file" multiple hidden (change)="onFileInputChange($event)" />
         <button class="btn" type="button" [disabled]="selected.size === 0" (click)="downloadSelected()">
           <app-icon name="download" size="14" /> Download ({{ selected.size }})
         </button>
+        <button class="btn" type="button" [disabled]="loading" title="Refresh" (click)="load()">
+          <app-icon name="refresh" size="14" [spin]="loading" />
+        </button>
         <div class="view-toggle">
           <button type="button" [class.active]="view === 'table'" title="Table view" (click)="view = 'table'"><app-icon name="list" size="15" /></button>
           <button type="button" [class.active]="view === 'grid'" title="Grid view" (click)="view = 'grid'"><app-icon name="grid" size="15" /></button>
         </div>
       </div>
+
+      @if (isSearching()) {
+        <div class="file-manager-search-hint">
+          <app-icon name="search" size="12" />
+          Searching "{{ search }}" in this folder and all subfolders — click a result to jump to where it is.
+        </div>
+      }
 
       @if (uploadProgress) {
         <div class="upload-progress">
@@ -83,17 +98,27 @@ function formatSize(bytes: number): string {
               </thead>
               <tbody>
                 @for (entry of entries; track entry.path) {
-                  <tr [class.row-selected]="selected.has(entry.path)" (dblclick)="navigateInto(entry)">
+                  <tr
+                    [class.row-selected]="selected.has(entry.path)"
+                    (click)="isSearching() && goToLocation(entry)"
+                    (dblclick)="!isSearching() && navigateInto(entry)"
+                  >
                     <td>
                       <input
                         type="checkbox"
                         [checked]="selected.has(entry.path)"
+                        (click)="$event.stopPropagation()"
                         (change)="toggleSelect(entry.path)"
                       />
                     </td>
                     <td class="file-name-cell">
                       <app-icon [name]="entry.directory ? 'folder' : 'file'" size="15" />
-                      {{ entry.name }}
+                      <span>
+                        {{ entry.name }}
+                        @if (isSearching()) {
+                          <span class="file-location-hint">{{ locationOf(entry) }}</span>
+                        }
+                      </span>
                     </td>
                     <td>{{ entry.directory ? '—' : formatSize(entry.size) }}</td>
                     <td>{{ entry.lastModified ? (entry.lastModified | date: 'medium') : '—' }}</td>
@@ -108,12 +133,14 @@ function formatSize(bytes: number): string {
                 <div
                   class="file-grid-item"
                   [class.row-selected]="selected.has(entry.path)"
-                  (click)="toggleSelect(entry.path)"
-                  (dblclick)="navigateInto(entry)"
+                  (click)="isSearching() ? goToLocation(entry) : toggleSelect(entry.path)"
+                  (dblclick)="!isSearching() && navigateInto(entry)"
                 >
                   <div class="file-grid-icon"><app-icon [name]="entry.directory ? 'folder' : 'file'" size="28" /></div>
                   <div class="file-grid-name">{{ entry.name }}</div>
-                  @if (!entry.directory) {
+                  @if (isSearching()) {
+                    <div class="file-location-hint">{{ locationOf(entry) }}</div>
+                  } @else if (!entry.directory) {
                     <div class="file-grid-size">{{ formatSize(entry.size) }}</div>
                   }
                 </div>
@@ -169,6 +196,23 @@ export class FileManagerPanelComponent implements OnInit {
       this.path = entry.path;
       this.load();
     }
+  }
+
+  isSearching(): boolean {
+    return this.search.trim().length > 0;
+  }
+
+  /** Deep-search results carry their full path (e.g. "sub/subsub/file.txt"); shown
+   * next to the name so it's clear where a match actually lives. */
+  locationOf(entry: FileEntry): string {
+    const idx = entry.path.lastIndexOf('/');
+    return idx > 0 ? entry.path.slice(0, idx) : '.';
+  }
+
+  goToLocation(entry: FileEntry): void {
+    this.path = entry.directory ? entry.path : this.locationOf(entry);
+    this.search = '';
+    this.load();
   }
 
   navigateUp(): void {

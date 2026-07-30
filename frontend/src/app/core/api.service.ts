@@ -175,8 +175,8 @@ export class ApiService {
   }
 
   // ---------- File stage tracker ----------
-  searchStages(environmentId: string, filename: string): Observable<StageSearchResult> {
-    const params = new HttpParams().set('filename', filename);
+  searchStages(environmentId: string, query: string): Observable<StageSearchResult> {
+    const params = new HttpParams().set('query', query);
     return this.http.get<StageSearchResult>(`/api/environments/${environmentId}/stage-tracker/search`, { params });
   }
 

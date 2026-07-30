@@ -32,6 +32,11 @@ data/
 *.log
 logs/
 
+# Release packaging (release.sh embeds the built Angular app here, then
+# assembles a distributable release/ folder — both are build output, not source)
+backend/src/main/resources/static/
+release/
+
 # Env
 .env
 .env.local

@@ -39,9 +39,15 @@
               } @else if (tab.type === 'files') {
                 <app-file-manager-panel [environmentId]="tab.environmentId"></app-file-manager-panel>
               } @else if (tab.type === 'applications') {
-                <app-applications-panel [environmentId]="tab.environmentId"></app-applications-panel>
+                <app-applications-panel
+                  [environmentId]="tab.environmentId"
+                  (openStageTrackerFor)="openStageTrackerForQuery(tab.environmentId, $event)"
+                ></app-applications-panel>
               } @else if (tab.type === 'stage-tracker') {
-                <app-stage-tracker-panel [environmentId]="tab.environmentId"></app-stage-tracker-panel>
+                <app-stage-tracker-panel
+                  [environmentId]="tab.environmentId"
+                  [initialQuery]="pendingStageTrackerQuery"
+                ></app-stage-tracker-panel>
               } @else {
                 <app-s3-transfer-panel [environmentId]="tab.environmentId"></app-s3-transfer-panel>
               }

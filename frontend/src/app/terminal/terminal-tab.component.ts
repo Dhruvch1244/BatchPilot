@@ -41,6 +41,11 @@ const THEME_DARK = {
   brightWhite: '#e5e5e5'
 };
 
+// "white"/"brightWhite" here are the ANSI slots background-colored text or `ls`
+// style listings often render in on a dark terminal, which read as literally
+// invisible on the light theme's white background if left anywhere near actual
+// white — darkened well past the dark theme's own values for that reason. Green
+// is the Fidelity brand green, already dark enough on white to stay readable.
 const THEME_LIGHT = {
   background: '#ffffff',
   foreground: '#1d2129',
@@ -50,20 +55,29 @@ const THEME_LIGHT = {
   black: '#000000',
   red: '#cd3131',
   green: '#006044',
-  yellow: '#949800',
+  yellow: '#8a7500',
   blue: '#0451a5',
   magenta: '#bc05bc',
   cyan: '#0598bc',
-  white: '#555555',
+  white: '#3a3a3a',
   brightBlack: '#666666',
   brightRed: '#cd3131',
-  brightGreen: '#4f7a1f',
-  brightYellow: '#b5ba00',
+  brightGreen: '#3f6119',
+  brightYellow: '#6e5e00',
   brightBlue: '#0451a5',
   brightMagenta: '#bc05bc',
   brightCyan: '#0598bc',
-  brightWhite: '#a5a5a5'
+  brightWhite: '#5c5c5c'
 };
+
+// Best-effort: xterm.js just needs a font-family CSS value, so if the user has
+// any of these Nerd Fonts installed (common among developers, for powerline/
+// prompt glyphs), the terminal picks it up automatically -- no font file is
+// bundled with the app, there's nothing to install this from our side.
+const TERMINAL_FONT_FAMILY =
+  '"CaskaydiaCove Nerd Font", "FiraCode Nerd Font Mono", "Hack Nerd Font Mono", ' +
+  '"JetBrainsMono Nerd Font Mono", "MesloLGS NF", "Cascadia Code", ui-monospace, ' +
+  '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
 
 // FitAddon.fit() reads renderer measurements that aren't always available yet
 // (container mid-layout, tab hidden via display:none, etc.); swallow those.
@@ -97,6 +111,13 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
   private fitAddon?: FitAddon;
   private ws?: WebSocket;
   private resizeObserver?: ResizeObserver;
+  /** True once the server confirms the PTY channel is actually open. Keystrokes typed
+   * before that (the WebSocket itself opens before the SSH shell channel does, which can
+   * take a real network round-trip) are queued here instead of sent — otherwise the
+   * server silently drops them (no session registered yet for this connection), which
+   * looks like "the terminal isn't responding" to whoever typed them. */
+  private ready = false;
+  private pendingInput: string[] = [];
 
   constructor(private state: AppStateService) {
     effect(() => {
@@ -119,6 +140,7 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
 
     const term = new Terminal({
       fontSize: settings.fontSize,
+      fontFamily: TERMINAL_FONT_FAMILY,
       theme: settings.theme === 'dark' ? THEME_DARK : THEME_LIGHT,
       cursorBlink: true,
       scrollback: 5000,
@@ -149,6 +171,8 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
             this.statusMessage = msg.message ?? 'Terminal error';
           } else if (msg.type === 'status') {
             this.statusMessage = '';
+            this.ready = true;
+            this.flushPendingInput(ws);
           }
         } catch {
           term.write(event.data);
@@ -161,8 +185,13 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
     ws.onerror = () => (this.statusMessage = 'Terminal connection error');
 
     term.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState !== WebSocket.OPEN) {
+        return;
+      }
+      if (this.ready) {
         ws.send(new TextEncoder().encode(data));
+      } else {
+        this.pendingInput.push(data);
       }
     });
 
@@ -174,6 +203,13 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
 
     this.resizeObserver = new ResizeObserver(() => safeFit(fitAddon));
     this.resizeObserver.observe(container);
+  }
+
+  private flushPendingInput(ws: WebSocket): void {
+    if (this.pendingInput.length === 0) return;
+    const buffered = this.pendingInput.join('');
+    this.pendingInput = [];
+    ws.send(new TextEncoder().encode(buffered));
   }
 
   ngOnChanges(changes: SimpleChanges): void {

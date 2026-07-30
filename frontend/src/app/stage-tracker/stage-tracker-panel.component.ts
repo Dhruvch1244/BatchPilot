@@ -3,20 +3,21 @@ import { Component, Input, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
-import { PipelineStage, StageGroup, StageMatch, StageSearchHistoryEntry, StageSearchResult } from '../core/models';
+import { FileStageResult, PipelineStage, StageGroup, StageMatch, StageSearchHistoryEntry, StageSearchResult } from '../core/models';
 import { IconComponent, IconName } from '../shared/icon.component';
 import { LogsModalComponent } from '../shared/logs-modal.component';
 
 const KILLABLE_STATES = new Set(['NEW', 'NEW_SAVING', 'SUBMITTED', 'ACCEPTED', 'RUNNING']);
-const RUNNING_STATES = new Set(['NEW', 'NEW_SAVING', 'SUBMITTED', 'ACCEPTED', 'RUNNING']);
+const RUNNING_STATES = KILLABLE_STATES;
 const FAILED_STATES = new Set(['FAILED', 'KILLED']);
 
 const STAGE_ICONS: Record<PipelineStage, IconName> = {
   PREPROCESSOR: 'activity',
   VALIDATION: 'check-circle',
   NORMALIZATION: 'refresh',
-  DAAF: 'server',
-  TRANSMISSION: 'download'
+  DELTA: 'server',
+  TRANSMISSION: 'download',
+  OUTBOUND: 'download'
 };
 
 function formatDuration(ms: number): string {
@@ -36,96 +37,109 @@ function formatDuration(ms: number): string {
   imports: [FormsModule, DatePipe, NgTemplateOutlet, IconComponent, LogsModalComponent],
   template: `
     <div class="stage-tracker-panel">
-      <div class="stage-search-bar">
-        <span class="input-with-icon">
-          <app-icon name="search" size="14" />
-          <input
-            class="file-manager-search"
-            placeholder="Search by filename to find its pipeline applications…"
-            [(ngModel)]="query"
-            (keydown.enter)="search()"
-          />
-        </span>
-        @if (history.length > 0) {
-          <div class="history-dropdown">
-            <button class="btn" type="button" (click)="historyOpen = !historyOpen">
-              <app-icon name="history" size="14" />
-              Recent
-              <app-icon [name]="historyOpen ? 'chevron-up' : 'chevron-down'" size="13" />
+      <div class="stage-tracker-main">
+        <div class="stage-tracker-main-inner">
+          <div class="stage-search-bar">
+            <span class="input-with-icon">
+              <app-icon name="search" size="14" />
+              <input
+                class="file-manager-search"
+                placeholder="Search by filename to find its pipeline applications…"
+                [(ngModel)]="query"
+                (keydown.enter)="search()"
+              />
+            </span>
+            <button class="btn" type="button" [disabled]="searching || !query.trim()" title="Refresh" (click)="search()">
+              <app-icon name="refresh" size="14" [spin]="searching" />
             </button>
-            @if (historyOpen) {
-              <div class="history-dropdown-panel">
-                @for (h of history; track h.id) {
-                  <button class="history-dropdown-item" type="button" [title]="h.environmentName" (click)="rerun(h)">
-                    <app-icon name="file-search" size="13" />
-                    <span class="history-dropdown-name">{{ h.filename }}</span>
-                    <span class="history-dropdown-count">{{ h.matchCount }}</span>
-                  </button>
-                }
-              </div>
+            <button class="btn btn-primary" type="button" [disabled]="searching || !query.trim()" (click)="search()">
+              <app-icon name="file-search" size="14" />
+              Search
+            </button>
+          </div>
+
+          @if (error) {
+            <div class="form-error">{{ error }}</div>
+          }
+          @if (searching) {
+            <div class="file-manager-loading">Searching…</div>
+          }
+
+          @if (result && !searching) {
+            @if (result.files.length === 0) {
+              <div class="stage-empty">No running or recent YARN applications match "{{ result.query }}".</div>
             }
-          </div>
-        }
-        <button class="btn btn-primary" type="button" [disabled]="searching || !query.trim()" (click)="search()">
-          <app-icon name="file-search" size="14" />
-          Search
-        </button>
-      </div>
-
-      @if (error) {
-        <div class="form-error">{{ error }}</div>
-      }
-      @if (searching) {
-        <div class="file-manager-loading">Searching…</div>
-      }
-
-      @if (result) {
-        <div class="run-card">
-          <div class="run-card-header">
-            <span class="run-card-title">{{ result.filename }}</span>
-            <span class="quick-execute-duration">searched {{ result.searchedAt | date: 'medium' }}</span>
-          </div>
-
-          <div class="stage-pipeline">
-            @for (group of result.stages; track group.stage) {
-              <div class="stage-step" [class]="stepClass(group)">
-                <div class="stage-step-icon"><app-icon [name]="stageIcon(group.stage)" size="16" /></div>
-                <div class="stage-step-name">{{ group.label }}</div>
-                <div class="stage-step-duration">
-                  {{ group.matches.length > 0 ? group.matches.length + ' run' + (group.matches.length > 1 ? 's' : '') : '—' }}
+            @for (file of result.files; track file.coreFileName) {
+              <div class="run-card">
+                <div class="run-card-header">
+                  <span class="run-card-title">{{ file.coreFileName }}</span>
+                  <div class="run-card-meta">
+                    @if (file.latestCompletedAt) {
+                      <span><app-icon name="check-circle" size="11" /> last completed {{ file.latestCompletedAt | date: 'medium' }}</span>
+                    }
+                    <span class="quick-execute-duration">searched {{ result.searchedAt | date: 'short' }}</span>
+                  </div>
                 </div>
-              </div>
-            }
-          </div>
 
-          @for (group of result.stages; track group.stage) {
-            @if (group.matches.length > 0) {
-              <div class="stage-detail-group">
-                <span class="stage-group-label">{{ group.label }}</span>
-                @for (m of group.matches; track m.applicationId) {
-                  <ng-container *ngTemplateOutlet="matchRow; context: { $implicit: m }"></ng-container>
+                @if (file.stages.length > 0) {
+                  <div class="stage-pipeline">
+                    @for (group of file.stages; track group.stage) {
+                      <div class="stage-step" [class]="stepClass(group)">
+                        <div class="stage-step-icon"><app-icon [name]="stageIcon(group.stage)" size="16" /></div>
+                        <div class="stage-step-name">{{ group.label }}</div>
+                        <div class="stage-step-duration">
+                          {{ group.matches.length }} run{{ group.matches.length > 1 ? 's' : '' }}
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+
+                @for (group of file.stages; track group.stage) {
+                  <div class="stage-detail-group">
+                    <span class="stage-group-label">{{ group.label }}</span>
+                    @for (m of group.matches; track m.applicationId) {
+                      <ng-container *ngTemplateOutlet="matchRow; context: { $implicit: m, file: file }"></ng-container>
+                    }
+                  </div>
+                }
+
+                @if (file.unclassifiedMatches.length > 0) {
+                  <div class="stage-detail-group">
+                    <span class="stage-group-label">Other matches (stage not recognized from name)</span>
+                    @for (m of file.unclassifiedMatches; track m.applicationId) {
+                      <ng-container *ngTemplateOutlet="matchRow; context: { $implicit: m, file: file }"></ng-container>
+                    }
+                  </div>
                 }
               </div>
             }
-          }
-
-          @if (result.unclassifiedMatches.length > 0) {
-            <div class="stage-detail-group">
-              <span class="stage-group-label">Other matches (stage not recognized from name)</span>
-              @for (m of result.unclassifiedMatches; track m.applicationId) {
-                <ng-container *ngTemplateOutlet="matchRow; context: { $implicit: m }"></ng-container>
-              }
-            </div>
-          }
-
-          @if (isEmpty(result)) {
-            <div class="stage-empty">No running or recent YARN applications match "{{ result.filename }}".</div>
           }
         </div>
-      }
+      </div>
 
-      <ng-template #matchRow let-m>
-        <div class="app-card app-card-clickable" title="Click to view logs" (click)="openLogs(m)">
+      <aside class="stage-tracker-sidebar">
+        <div class="stage-tracker-sidebar-header">Recent searches</div>
+        @if (history.length === 0) {
+          <div class="stage-empty" style="padding: 12px 4px;">No searches yet.</div>
+        }
+        @for (h of history; track h.id) {
+          <button
+            class="stage-history-item"
+            type="button"
+            [class.stage-history-item-active]="h.filename === query"
+            [title]="h.environmentName"
+            (click)="rerun(h)"
+          >
+            <app-icon name="file-search" size="13" />
+            <span class="stage-history-name">{{ h.filename }}</span>
+            <span class="stage-history-count">{{ h.matchCount }}</span>
+          </button>
+        }
+      </aside>
+
+      <ng-template #matchRow let-m let-file="file">
+        <div class="app-card app-card-clickable" title="Click to focus on just this file" (click)="focusFile(file)">
           <div class="app-card-info">
             <div class="app-card-name">{{ m.applicationName }}</div>
             <div class="app-card-meta">
@@ -133,6 +147,9 @@ function formatDuration(ms: number): string {
               <span><app-icon name="clock" size="11" /> {{ duration(m.elapsedMs) }}</span>
               @if (m.startTime) {
                 <span>started {{ m.startTime | date: 'short' }}</span>
+              }
+              @if (m.finishTime) {
+                <span>finished {{ m.finishTime | date: 'short' }}</span>
               }
             </div>
           </div>
@@ -142,15 +159,20 @@ function formatDuration(ms: number): string {
             </div>
           }
           <span class="app-state-badge" [class]="'app-state-' + m.state.toLowerCase()">{{ m.state }}</span>
-          <button
-            class="icon-btn icon-btn-danger"
-            type="button"
-            title="Kill application"
-            [disabled]="!killable(m) || killing.has(m.applicationId)"
-            (click)="kill(m, $event)"
-          >
-            <app-icon name="stop" size="15" />
+          <button class="icon-btn" type="button" title="View logs" (click)="openLogs(m, $event)">
+            <app-icon name="file-search" size="15" />
           </button>
+          @if (killable(m)) {
+            <button
+              class="icon-btn icon-btn-danger"
+              type="button"
+              title="Kill application"
+              [disabled]="killing.has(m.applicationId)"
+              (click)="kill(m, $event)"
+            >
+              <app-icon name="stop" size="15" />
+            </button>
+          }
         </div>
       </ng-template>
     </div>
@@ -162,11 +184,11 @@ function formatDuration(ms: number): string {
 })
 export class StageTrackerPanelComponent implements OnInit {
   @Input({ required: true }) environmentId!: string;
+  @Input() initialQuery?: string;
 
   query = '';
   result: StageSearchResult | null = null;
   history: StageSearchHistoryEntry[] = [];
-  historyOpen = false;
   searching = false;
   error: string | null = null;
   killing = new Set<string>();
@@ -178,6 +200,10 @@ export class StageTrackerPanelComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadHistory();
+    if (this.initialQuery && this.initialQuery.trim()) {
+      this.query = this.initialQuery.trim();
+      this.search();
+    }
   }
 
   async loadHistory(): Promise<void> {
@@ -190,7 +216,11 @@ export class StageTrackerPanelComponent implements OnInit {
 
   rerun(entry: StageSearchHistoryEntry): void {
     this.query = entry.filename;
-    this.historyOpen = false;
+    this.search();
+  }
+
+  focusFile(file: FileStageResult): void {
+    this.query = file.coreFileName;
     this.search();
   }
 
@@ -223,11 +253,8 @@ export class StageTrackerPanelComponent implements OnInit {
     return KILLABLE_STATES.has(match.state);
   }
 
-  isEmpty(result: StageSearchResult): boolean {
-    return result.stages.every((g) => g.matches.length === 0) && result.unclassifiedMatches.length === 0;
-  }
-
-  openLogs(match: StageMatch): void {
+  openLogs(match: StageMatch, event: Event): void {
+    event.stopPropagation();
     this.logsFor = match.applicationId;
   }
 
