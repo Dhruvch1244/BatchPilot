@@ -38,7 +38,10 @@ batchpilot/
 
 - Java 17+
 - Maven 3.9+
-- Node.js 18+ and npm
+- Node.js 18+ and npm — **npm 11.10.0+ recommended** so the supply-chain
+  cooldown in `frontend/.npmrc` (`min-release-age`) is actually enforced; on
+  older npm it's silently ignored (no error, no protection). Check with
+  `npm --version`.
 
 ## Build & run — backend
 
@@ -99,6 +102,15 @@ Backend settings live in `backend/src/main/resources/application.yml`:
 Application-level settings (font size, theme, auto-reconnect, max tabs, upload
 limits) are editable from the Settings dialog in the UI and persisted to
 `settings.json`.
+
+### Theme palette
+
+Both the light and dark themes are built around Fidelity Investments' brand
+colors: deep green `#006044` (primary accent), secondary olive-green `#76a923`
+(status/success family), and muted gold `#af8a49` (warnings) — tuned per shade
+for contrast rather than used verbatim everywhere. See the CSS custom
+properties under `.theme-light` / `.theme-dark` in
+`frontend/src/index.css` to adjust.
 
 ## Security notes
 
