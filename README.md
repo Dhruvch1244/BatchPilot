@@ -86,6 +86,28 @@ npm run build
 This produces static assets in `frontend/dist/frontend/`, which can be served
 by any static file server or reverse-proxied alongside the backend.
 
+### Troubleshooting `npm install`
+
+- **`403 Forbidden` from a corporate npm registry/Artifactory on a specific
+  package version** (e.g. `postcss@8.5.x`) — your org's registry hasn't
+  mirrored/approved that version yet, usually because it's very recently
+  published (the same "let brand-new packages age before trusting them"
+  principle behind this project's own `min-release-age` policy, just
+  enforced server-side on their end instead of client-side). `postcss` is
+  already pinned to a long-stable `8.4.x` release via `overrides` in
+  `package.json` for this reason; if a *different* package hits the same
+  wall, add a similar `overrides` entry pinning it to an older version and
+  regenerate the lockfile (`rm -rf node_modules package-lock.json && npm
+  install`).
+- **`EPERM: operation not permitted, rmdir ...` warnings on Windows** during
+  `npm install` — a file in `node_modules` is locked by another process
+  (antivirus real-time scanning, an IDE, or OneDrive sync watching the
+  folder). These are usually just noisy `npm warn cleanup` lines, not the
+  actual failure; if `npm install` fails because of them, close any
+  editors/terminals open in the project, exclude the folder from real-time
+  antivirus scanning, and make sure the project isn't inside a OneDrive- or
+  similar cloud-synced directory, then retry.
+
 ## Running both together
 
 1. `mvn clean package -pl backend -am && java -jar backend/target/batchpilot-backend.jar`
