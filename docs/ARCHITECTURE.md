@@ -7,12 +7,13 @@ single origin in production:
 
 - **Backend** — Spring Boot 3 (Java 17), layered/service-based, owns all SSH
   state and local persistence.
-- **Frontend** — React 18 + TypeScript, a single-page app built with Vite.
+- **Frontend** — Angular 17 (standalone components, signals) + TypeScript,
+  a single-page app built with the Angular CLI's esbuild-based builder.
 
 ```
 ┌─────────────────────┐        REST (/api/**)        ┌──────────────────────────┐
 │                      │ ────────────────────────────▶│                          │
-│   React Frontend     │        WebSocket (/ws/**)     │   Spring Boot Backend    │
+│  Angular Frontend    │        WebSocket (/ws/**)     │   Spring Boot Backend    │
 │   (xterm.js, SPA)    │ ◀────────────────────────────▶│                          │
 └─────────────────────┘                                └───────────┬──────────────┘
                                                                      │ SSH / SFTP
@@ -114,19 +115,35 @@ in-memory changes on restart.
 
 ## Frontend structure
 
-- **`context/AppContext`** — single source of truth for environments,
+All components are standalone (no `NgModule`s); state is signal-based rather
+than a service layered over RxJS `BehaviorSubject`s, so templates re-render
+automatically on change with no manual subscription management.
+
+- **`core/models.ts`** — shared TypeScript types mirroring the backend DTOs.
+- **`core/api.service.ts`** — thin `HttpClient` wrapper, one method per REST
+  endpoint; file uploads use `HttpClient`'s native `reportProgress` events
+  instead of a manual `XMLHttpRequest`.
+- **`core/app-state.service.ts`** — single source of truth for environments,
   connection statuses (polled every 5s while connected/connecting), and
-  settings; exposes CRUD/connect/disconnect/reconnect actions used throughout
-  the UI.
-- **`components/Layout`** — `AppShell` composes the toolbar, sidebar, tab
-  strip, and status bar described in the requirements; it also owns open-tab
-  state (`Tab[]`, each tab is either a `terminal` or `files` tab bound to one
-  environment).
-- **`components/Terminal`** — `TerminalTab` wraps one `@xterm/xterm` instance
-  plus its `FitAddon`/`WebLinksAddon` and WebSocket connection.
-- **`components/FileManager`**, **`components/QuickExecute`**,
-  **`components/Settings`**, **`components/Environments`** — one panel per
-  feature area, each talking to the backend through `api/client.ts`.
+  settings, exposed as read-only signals (`environments`, `statuses`,
+  `settings`, plus computed `selectedEnvironment`/`selectedStatus`). Exposes
+  CRUD/connect/disconnect/reconnect actions used throughout the UI. Injected
+  directly into whichever component needs it — no context provider wrapper
+  required, since Angular's DI makes any `providedIn: 'root'` service a
+  singleton reachable from anywhere in the tree.
+- **`AppComponent`** (`app.component.ts`/`.html`) — the root shell: composes
+  the toolbar, sidebar, tab strip, and status bar described in the
+  requirements; owns open-tab state (`Tab[]`, each tab is either a `terminal`
+  or `files` tab bound to one environment) and the settings/environment-form
+  modal visibility.
+- **`terminal/terminal-tab.component.ts`** — wraps one `@xterm/xterm`
+  instance plus its `FitAddon`/`WebLinksAddon` and WebSocket connection;
+  reacts to font-size/theme changes via an Angular `effect()` over the
+  settings signal, and to tab activation via `ngOnChanges`.
+- **`file-manager/`**, **`quick-execute/`**, **`settings/`**,
+  **`environments/`** — one component per feature area, each talking to the
+  backend through `ApiService` (or `AppStateService` where the action needs
+  to update shared state).
 
 ## Non-functional considerations
 
