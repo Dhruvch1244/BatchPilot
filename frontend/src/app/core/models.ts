@@ -100,6 +100,7 @@ export interface YarnNode {
 export type S3FileType = 'out' | 'dif' | 'px';
 
 export interface S3CopyRequest {
+  sourcePath: string;
   vendorName: string;
   fileName: string;
   fileType: S3FileType;

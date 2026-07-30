@@ -254,29 +254,38 @@ The **S3 Transfer** toolbar action builds and runs, over the environment's SSH
 session:
 
 ```
-aws s3 cp s3://$S3_BUCKET/daaf-staging/<vendor_name>/<fileName>.<file-type>.<YYYYMMDD>
+aws s3 cp <source file> s3://$S3_BUCKET/daaf-staging/<vendor_name>/<fileName>.<file-type>.<YYYYMMDD>
 ```
 
 `$S3_BUCKET` is left unexpanded on purpose — the *remote* shell resolves it
 from whatever is set in that environment, this app never substitutes it.
 
+- **Source file** — either a path already on the environment (e.g. an EMR
+  box path, typed directly), or a local file attached from your computer
+  (any kind) — attaching one uploads it to the environment first (over the
+  same SFTP upload the File Manager uses, to a directory you choose,
+  `.` — the home directory — by default) and then uses that uploaded path as
+  the `aws s3 cp` source.
 - **Vendor** — a combo text input with autocomplete suggestions from
   previously-used vendors (`vendors.json`, same load/write-through pattern as
   the other JSON stores). A vendor is saved automatically the first time a
   transfer using it succeeds — no separate "save" step — and can be removed
   from the chip list underneath the input.
-- **File name** — free text.
+- **Staged file name** — free text; this is the *destination* file name in
+  the `daaf-staging` path, independent of whatever the source file is
+  actually called.
 - **File type** — exactly `out`, `dif`, or `px`.
 - **Date** — a date picker defaulting to today, formatted to `YYYYMMDD` for
   the command.
-- **Extra arguments** — optional, for a destination path or extra flags the
-  base template doesn't specify.
+- **Extra `aws cp` flags** — optional (e.g. `--sse AES256`), appended after
+  the destination.
 
-A live command preview shows exactly what will run before you click it. Every
-field is validated against a strict character allowlist server-side
-(`S3TransferService`) before being interpolated into the command string, for
-the same reason YARN application IDs are — this also runs over a real remote
-shell.
+A live command preview shows exactly what will run before you click it. The
+vendor/file-name/file-type/date fields are validated against a strict
+character allowlist server-side (`S3TransferService`); the source path is
+shell-quoted instead (it has to accept arbitrary uploaded file names) — both
+for the same reason YARN application IDs are validated: this runs over a
+real remote shell, so anything not handled is a command-injection vector.
 
 ## Security notes
 

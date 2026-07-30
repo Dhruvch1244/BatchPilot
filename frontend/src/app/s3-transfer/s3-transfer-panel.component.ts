@@ -1,14 +1,21 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { QuickExecuteResult, S3FileType } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
 
+type SourceMode = 'remote' | 'upload';
+
 function todayIso(): string {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   return new Date(now.getTime() - offset * 60000).toISOString().slice(0, 10);
+}
+
+function joinPath(directory: string, name: string): string {
+  const dir = directory.trim() || '.';
+  return dir.endsWith('/') ? `${dir}${name}` : `${dir}/${name}`;
 }
 
 @Component({
@@ -18,13 +25,49 @@ function todayIso(): string {
   template: `
     <div class="s3-transfer-panel">
       <div class="form">
+        <div class="form-field">
+          <span>Source file</span>
+          <div class="view-toggle">
+            <button type="button" [class.active]="sourceMode === 'remote'" (click)="sourceMode = 'remote'">
+              Path on this environment
+            </button>
+            <button type="button" [class.active]="sourceMode === 'upload'" (click)="sourceMode = 'upload'">
+              Attach a local file
+            </button>
+          </div>
+        </div>
+
+        @if (sourceMode === 'remote') {
+          <label class="form-field">
+            <span>Remote path</span>
+            <input [(ngModel)]="remotePath" placeholder="e.g. /home/hadoop/data/positions_report.csv" />
+          </label>
+        } @else {
+          <label class="form-field">
+            <span>Upload to directory</span>
+            <input [(ngModel)]="uploadDir" placeholder="." />
+          </label>
+          <div class="form-field">
+            <span>File</span>
+            <button class="btn" type="button" (click)="fileInput.click()">
+              <app-icon name="folder" size="14" />
+              {{ selectedFile ? selectedFile.name : 'Choose a file (any kind)' }}
+            </button>
+            <input #fileInput type="file" hidden (change)="onFileSelected($event)" />
+          </div>
+          @if (uploadProgress) {
+            <div class="upload-progress">
+              <div class="upload-progress-bar" [style.width.%]="(uploadProgress.loaded / uploadProgress.total) * 100"></div>
+            </div>
+          }
+        }
+
         <label class="form-field">
           <span>Vendor</span>
           <input
             list="vendor-options"
             [(ngModel)]="vendorName"
             placeholder="e.g. bloomberg"
-            (change)="onVendorChange()"
           />
           <datalist id="vendor-options">
             @for (v of vendors; track v) {
@@ -47,7 +90,7 @@ function todayIso(): string {
         }
 
         <label class="form-field">
-          <span>File name</span>
+          <span>Staged file name</span>
           <input [(ngModel)]="fileName" placeholder="e.g. positions_report" />
         </label>
 
@@ -68,8 +111,8 @@ function todayIso(): string {
         </div>
 
         <label class="form-field">
-          <span>Extra arguments (optional)</span>
-          <input [(ngModel)]="extraArgs" placeholder="e.g. a destination path or flags" />
+          <span>Extra aws cp flags (optional)</span>
+          <input [(ngModel)]="extraArgs" placeholder="e.g. --sse AES256" />
         </label>
 
         <div class="form-field">
@@ -79,7 +122,7 @@ function todayIso(): string {
 
         <button class="btn btn-primary" type="button" [disabled]="running || !canRun()" (click)="run()">
           <app-icon name="play" size="14" />
-          {{ running ? 'Running…' : 'Run' }}
+          {{ running ? (uploading ? 'Uploading…' : 'Running…') : 'Run' }}
         </button>
 
         @if (error) {
@@ -146,8 +189,15 @@ function todayIso(): string {
 })
 export class S3TransferPanelComponent implements OnInit {
   @Input({ required: true }) environmentId!: string;
+  @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
 
   vendors: string[] = [];
+  sourceMode: SourceMode = 'remote';
+  remotePath = '';
+  uploadDir = '.';
+  selectedFile: File | null = null;
+  uploadProgress: { loaded: number; total: number } | null = null;
+  uploading = false;
   vendorName = '';
   fileName = '';
   fileType: S3FileType = 'out';
@@ -171,10 +221,6 @@ export class S3TransferPanelComponent implements OnInit {
     }
   }
 
-  onVendorChange(): void {
-    // Persistence happens server-side on a successful run; nothing to do here.
-  }
-
   async removeVendor(name: string): Promise<void> {
     try {
       this.vendors = await firstValueFrom(this.api.removeVendor(name));
@@ -183,8 +229,21 @@ export class S3TransferPanelComponent implements OnInit {
     }
   }
 
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedFile = input.files?.[0] ?? null;
+  }
+
+  private sourcePreviewPath(): string {
+    if (this.sourceMode === 'remote') {
+      return this.remotePath.trim() || '<path to file on EMR>';
+    }
+    return this.selectedFile ? joinPath(this.uploadDir, this.selectedFile.name) : '<attach a local file>';
+  }
+
   canRun(): boolean {
-    return !!this.vendorName.trim() && !!this.fileName.trim() && !!this.fileType && !!this.date;
+    const hasSource = this.sourceMode === 'remote' ? !!this.remotePath.trim() : !!this.selectedFile;
+    return hasSource && !!this.vendorName.trim() && !!this.fileName.trim() && !!this.fileType && !!this.date;
   }
 
   commandPreview(): string {
@@ -192,7 +251,7 @@ export class S3TransferPanelComponent implements OnInit {
     const file = this.fileName.trim() || '<fileName>';
     const dateSuffix = this.date ? this.date.replace(/-/g, '') : 'YYYYMMDD';
     const extra = this.extraArgs.trim();
-    return `aws s3 cp s3://$S3_BUCKET/daaf-staging/${vendor}/${file}.${this.fileType}.${dateSuffix}${extra ? ' ' + extra : ''}`;
+    return `aws s3 cp ${this.sourcePreviewPath()} s3://$S3_BUCKET/daaf-staging/${vendor}/${file}.${this.fileType}.${dateSuffix}${extra ? ' ' + extra : ''}`;
   }
 
   async run(): Promise<void> {
@@ -200,8 +259,10 @@ export class S3TransferPanelComponent implements OnInit {
     this.running = true;
     this.error = null;
     try {
+      const sourcePath = await this.resolveSourcePath();
       this.result = await firstValueFrom(
         this.api.runS3Transfer(this.environmentId, {
+          sourcePath,
           vendorName: this.vendorName.trim(),
           fileName: this.fileName.trim(),
           fileType: this.fileType,
@@ -214,6 +275,30 @@ export class S3TransferPanelComponent implements OnInit {
       this.error = e instanceof Error ? e.message : 'Transfer failed';
     } finally {
       this.running = false;
+      this.uploading = false;
+      this.uploadProgress = null;
     }
+  }
+
+  private async resolveSourcePath(): Promise<string> {
+    if (this.sourceMode === 'remote') {
+      return this.remotePath.trim();
+    }
+    const file = this.selectedFile;
+    if (!file) {
+      throw new Error('Attach a file first');
+    }
+    this.uploading = true;
+    await new Promise<void>((resolve, reject) => {
+      this.api.uploadFiles(this.environmentId, this.uploadDir || '.', [file]).subscribe({
+        next: (progress) => {
+          this.uploadProgress = { loaded: progress.loaded, total: progress.total };
+          if (progress.done) resolve();
+        },
+        error: reject
+      });
+    });
+    this.uploading = false;
+    return joinPath(this.uploadDir, file.name);
   }
 }

@@ -6,6 +6,11 @@ import lombok.Data;
 @Data
 public class S3CopyRequest {
 
+    /** Path to the source file on this environment (either typed directly, or the remote
+     * path a local file was just uploaded to via the File Manager's upload endpoint). */
+    @NotBlank
+    private String sourcePath;
+
     @NotBlank
     private String vendorName;
 
@@ -20,6 +25,6 @@ public class S3CopyRequest {
     @NotBlank
     private String date;
 
-    /** Optional extra arguments (e.g. a destination path) appended after the source URI. */
+    /** Optional extra `aws s3 cp` flags (e.g. --sse, --acl) appended after the destination URI. */
     private String extraArgs;
 }

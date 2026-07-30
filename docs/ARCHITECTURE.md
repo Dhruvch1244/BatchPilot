@@ -145,19 +145,24 @@ against YARN's ID format first.
 
 ## S3 vendor-staging transfer
 
-`S3TransferService` builds a fixed-shape `aws s3 cp
-s3://$S3_BUCKET/daaf-staging/<vendor>/<fileName>.<type>.<YYYYMMDD>` command
-and executes it by delegating to `QuickExecuteService` — no separate exec
-path. `$S3_BUCKET` is left as a literal `$`-reference in the command string
-so the *remote* shell expands it from whatever is configured in that
-environment; this service never resolves it itself. Every piece that lands
-in the command (vendor name, file name, file type, date, optional extra
-arguments) is checked against a strict character allowlist first — same
-reasoning as `YarnService`'s application-ID validation: this runs through a
-real remote shell, so anything not validated is a command-injection vector.
-`VendorRepository` persists vendor names to `vendors.json` (flat, deduped,
-alphabetical) — a successful transfer auto-saves its vendor name, so there's
-no separate "save vendor" action.
+`S3TransferService` builds `aws s3 cp <sourcePath>
+s3://$S3_BUCKET/daaf-staging/<vendor>/<fileName>.<type>.<YYYYMMDD>` and
+executes it by delegating to `QuickExecuteService` — no separate exec path.
+`$S3_BUCKET` is left as a literal `$`-reference in the command string so the
+*remote* shell expands it from whatever is configured in that environment;
+this service never resolves it itself. `sourcePath` is a path to a file
+already on that environment — the frontend gets it there either by letting
+the user type an existing remote path directly, or by uploading a local file
+first via the existing File Manager upload endpoint
+(`ApiService#uploadFiles`) and using the resulting remote path. Since
+`sourcePath` has to accept arbitrary uploaded file names (spaces, unicode,
+...), it's shell-quoted (`'...'`, embedded-quote-escaped) rather than
+allowlist-validated like the other fields (vendor name, file name, file
+type, date) — same reasoning as `YarnService`'s application-ID validation
+either way: this runs through a real remote shell, so anything not handled
+is a command-injection vector. `VendorRepository` persists vendor names to
+`vendors.json` (flat, deduped, alphabetical) — a successful transfer
+auto-saves its vendor name, so there's no separate "save vendor" action.
 
 ## File manager
 

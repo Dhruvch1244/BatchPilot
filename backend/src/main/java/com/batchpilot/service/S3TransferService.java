@@ -14,15 +14,19 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Builds and runs the DAAF staging S3 copy command:
- * {@code aws s3 cp s3://$S3_BUCKET/daaf-staging/<vendor>/<fileName>.<type>.<YYYYMMDD>}
- * over the environment's existing SSH session. {@code $S3_BUCKET} is left unexpanded
- * so the remote shell resolves it from whatever is set in that environment — this
- * service never substitutes it client-side.
+ * Builds and runs the DAAF staging S3 upload command:
+ * {@code aws s3 cp <sourcePath> s3://$S3_BUCKET/daaf-staging/<vendor>/<fileName>.<type>.<YYYYMMDD>}
+ * over the environment's existing SSH session. The source is a path to a file already on
+ * that environment — either typed directly (e.g. a path on the EMR box) or the remote path
+ * a local file was just uploaded to via the File Manager's upload endpoint, from the
+ * frontend's "attach a local file" flow. {@code $S3_BUCKET} is left unexpanded so the
+ * remote shell resolves it from whatever is set in that environment — this service never
+ * substitutes it client-side.
  *
- * <p>Every piece that lands in the command string is validated against a strict
- * character allowlist first: this runs through the same exec-channel-over-a-real-shell
- * path as Quick Execute, so anything not validated is a command injection vector.
+ * <p>Every piece that lands in the command string is either checked against a strict
+ * character allowlist or shell-quoted first: this runs through the same
+ * exec-channel-over-a-real-shell path as Quick Execute, so anything not handled is a
+ * command injection vector.
  */
 @Service
 public class S3TransferService {
@@ -57,6 +61,10 @@ public class S3TransferService {
     }
 
     public QuickExecuteResponse run(String environmentId, S3CopyRequest request) {
+        String sourcePath = request.getSourcePath() == null ? "" : request.getSourcePath().strip();
+        if (sourcePath.isEmpty()) {
+            throw new IllegalArgumentException("Source path is required");
+        }
         String vendor = requireValid(request.getVendorName(), VENDOR_PATTERN, "vendor name");
         String fileName = requireValid(request.getFileName(), FILENAME_PATTERN, "file name");
         String fileType = request.getFileType() == null ? "" : request.getFileType().strip().toLowerCase();
@@ -72,7 +80,8 @@ public class S3TransferService {
         // A user-saved vendor is trusted to persist automatically per the feature request.
         vendorRepository.add(vendor);
 
-        String command = "aws s3 cp s3://$S3_BUCKET/daaf-staging/" + vendor + "/" + fileName + "." + fileType + "." + dateSuffix
+        String destination = "s3://$S3_BUCKET/daaf-staging/" + vendor + "/" + fileName + "." + fileType + "." + dateSuffix;
+        String command = "aws s3 cp " + shellQuote(sourcePath) + " " + destination
                 + (extraArgs.isEmpty() ? "" : " " + extraArgs);
 
         QuickExecuteRequest execRequest = new QuickExecuteRequest();
@@ -89,6 +98,14 @@ public class S3TransferService {
                     "Invalid " + label + ": only letters, numbers, '.', '_', '-' are allowed, and it can't be empty");
         }
         return trimmed;
+    }
+
+    /** Wraps in single quotes for safe interpolation into a remote shell command, escaping any
+     * embedded single quotes — standard `'\''` POSIX-shell technique. Used for the source path
+     * rather than a character allowlist since it needs to accept arbitrary uploaded file names
+     * (spaces, unicode, ...), unlike the short typed fields above. */
+    private String shellQuote(String value) {
+        return "'" + value.replace("'", "'\\''") + "'";
     }
 
     private String formatDate(String isoDate) {
