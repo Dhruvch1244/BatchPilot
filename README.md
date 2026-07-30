@@ -5,7 +5,7 @@ batch operations. It manages named environments (DEV, UAT, and any number of
 custom targets), connects to them over SSH using PuTTY `.ppk` private keys, and
 gives you a full browser-based terminal (xterm.js), a one-off "Quick Execute"
 command runner, and an SFTP-backed file manager — all through a Spring Boot
-backend and a React frontend.
+backend and an Angular frontend.
 
 ## Project structure
 
@@ -24,12 +24,16 @@ batchpilot/
 │       ├── service/           # Business logic (CRUD, quick execute, file manager)
 │       ├── ssh/               # SSH connection manager, PPK key loading
 │       └── websocket/         # Terminal WebSocket <-> PTY bridge
-├── frontend/                  # React + TypeScript + Vite frontend
-│   └── src/
-│       ├── api/                # REST client
-│       ├── components/         # Layout, Environments, Terminal, FileManager, QuickExecute, Settings
-│       ├── context/             # Global app state (environments, connections, settings)
-│       └── types/                # Shared TypeScript types
+├── frontend/                  # Angular 17 (standalone components) frontend
+│   └── src/app/
+│       ├── core/               # Shared TypeScript models, HttpClient API service, signal-based state store
+│       ├── layout/             # Toolbar, Sidebar, StatusBar, root AppComponent shell
+│       ├── environments/       # Environment list item + create/edit form modal
+│       ├── terminal/           # Tab strip + xterm.js terminal component (WebSocket PTY bridge)
+│       ├── quick-execute/      # Quick Execute side panel
+│       ├── file-manager/       # File manager panel (browse/upload/download)
+│       ├── settings/           # Settings modal
+│       └── shared/             # Reusable modal component
 └── docs/
     └── ARCHITECTURE.md         # Architecture overview
 ```
@@ -38,10 +42,10 @@ batchpilot/
 
 - Java 17+
 - Maven 3.9+
-- Node.js 18+ and npm — **npm 11.10.0+ recommended** so the supply-chain
-  cooldown in `frontend/.npmrc` (`min-release-age`) is actually enforced; on
-  older npm it's silently ignored (no error, no protection). Check with
-  `npm --version`.
+- Node.js `^18.13.0 || ^20.9.0` (Angular 17's officially supported range) and
+  npm — **npm 11.10.0+ recommended** so the supply-chain cooldown in
+  `frontend/.npmrc` (`min-release-age`) is actually enforced; on older npm
+  it's silently ignored (no error, no protection). Check with `npm --version`.
 
 ## Build & run — backend
 
@@ -66,12 +70,12 @@ no unsaved in-memory-only state.
 ```bash
 cd batchpilot/frontend
 npm install
-npm run dev
+npm start
 ```
 
-The dev server starts on **http://localhost:5173** and proxies `/api` and `/ws`
-requests to the backend on port 8080 (see `vite.config.ts`). Start the backend
-first.
+The dev server starts on **http://localhost:4200** and proxies `/api` and `/ws`
+requests to the backend on port 8080 (see `proxy.conf.json`, wired up via
+`angular.json`'s `serve.options.proxyConfig`). Start the backend first.
 
 To build a production bundle:
 
@@ -79,14 +83,14 @@ To build a production bundle:
 npm run build
 ```
 
-This produces static assets in `frontend/dist/`, which can be served by any
-static file server or reverse-proxied alongside the backend.
+This produces static assets in `frontend/dist/frontend/`, which can be served
+by any static file server or reverse-proxied alongside the backend.
 
 ## Running both together
 
 1. `mvn clean package -pl backend -am && java -jar backend/target/batchpilot-backend.jar`
-2. In a second terminal: `cd frontend && npm install && npm run dev`
-3. Open http://localhost:5173
+2. In a second terminal: `cd frontend && npm install && npm start`
+3. Open http://localhost:4200
 
 ## Configuration
 
@@ -110,7 +114,7 @@ colors: deep green `#006044` (primary accent), secondary olive-green `#76a923`
 (status/success family), and muted gold `#af8a49` (warnings) — tuned per shade
 for contrast rather than used verbatim everywhere. See the CSS custom
 properties under `.theme-light` / `.theme-dark` in
-`frontend/src/index.css` to adjust.
+`frontend/src/styles.css` to adjust.
 
 ## Security notes
 
