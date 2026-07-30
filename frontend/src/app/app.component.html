@@ -4,6 +4,8 @@
     (openFiles)="openFilesForSelected()"
     (openQuickExecute)="quickExecuteOpen = true"
     (openSettings)="settingsOpen = true"
+    (openApplications)="openApplicationsForSelected()"
+    (openStageTracker)="openStageTrackerForSelected()"
   ></app-toolbar>
 
   <div class="app-body">
@@ -33,8 +35,12 @@
             <div class="tab-panel" [style.display]="tab.id === activeTabId ? 'flex' : 'none'">
               @if (tab.type === 'terminal') {
                 <app-terminal-tab [environmentId]="tab.environmentId" [active]="tab.id === activeTabId"></app-terminal-tab>
-              } @else {
+              } @else if (tab.type === 'files') {
                 <app-file-manager-panel [environmentId]="tab.environmentId"></app-file-manager-panel>
+              } @else if (tab.type === 'applications') {
+                <app-applications-panel [environmentId]="tab.environmentId"></app-applications-panel>
+              } @else {
+                <app-stage-tracker-panel [environmentId]="tab.environmentId"></app-stage-tracker-panel>
               }
             </div>
           }

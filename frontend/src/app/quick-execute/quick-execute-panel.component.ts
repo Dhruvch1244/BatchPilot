@@ -4,16 +4,17 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { AppStateService } from '../core/app-state.service';
 import { QuickExecuteResult } from '../core/models';
+import { IconComponent } from '../shared/icon.component';
 
 @Component({
   selector: 'app-quick-execute-panel',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, IconComponent],
   template: `
     <aside class="quick-execute-panel">
       <div class="panel-header">
         <span>Quick Execute</span>
-        <button class="icon-btn" type="button" (click)="close.emit()">✕</button>
+        <button class="icon-btn" type="button" (click)="close.emit()"><app-icon name="close" size="16" /></button>
       </div>
       <div class="panel-body">
         <label class="form-field">
@@ -53,9 +54,9 @@ import { QuickExecuteResult } from '../core/models';
                 </span>
                 <span class="quick-execute-duration">{{ result.durationMs }} ms</span>
                 <div class="quick-execute-result-actions">
-                  <button class="icon-btn" type="button" title="Copy output" (click)="copyOutput(result)">⧉</button>
+                  <button class="icon-btn" type="button" title="Copy output" (click)="copyOutput(result)"><app-icon name="duplicate" size="14" /></button>
                   <button class="icon-btn" type="button" title="Download output" (click)="downloadOutput(result)">
-                    ⬇
+                    <app-icon name="download" size="14" />
                   </button>
                 </div>
               </div>

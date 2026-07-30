@@ -10,6 +10,8 @@ import { FileManagerPanelComponent } from './file-manager/file-manager-panel.com
 import { QuickExecutePanelComponent } from './quick-execute/quick-execute-panel.component';
 import { SettingsModalComponent } from './settings/settings-modal.component';
 import { EnvironmentFormModalComponent } from './environments/environment-form-modal.component';
+import { ApplicationsPanelComponent } from './applications/applications-panel.component';
+import { StageTrackerPanelComponent } from './stage-tracker/stage-tracker-panel.component';
 
 export type EnvironmentFormState = { mode: 'create' } | { mode: 'edit'; environment: Environment } | null;
 
@@ -31,7 +33,9 @@ function nextTabId(): string {
     FileManagerPanelComponent,
     QuickExecutePanelComponent,
     SettingsModalComponent,
-    EnvironmentFormModalComponent
+    EnvironmentFormModalComponent,
+    ApplicationsPanelComponent,
+    StageTrackerPanelComponent
   ],
   templateUrl: './app.component.html'
 })
@@ -64,14 +68,26 @@ export class AppComponent implements OnInit {
   }
 
   openFilesTab(environmentId: string): void {
-    const existing = this.tabs.find((t) => t.type === 'files' && t.environmentId === environmentId);
+    this.openSingletonTab(environmentId, 'files', (env) => `${env?.name ?? 'Files'} — Explorer`);
+  }
+
+  openApplicationsTab(environmentId: string): void {
+    this.openSingletonTab(environmentId, 'applications', (env) => `${env?.name ?? 'Applications'} — YARN`);
+  }
+
+  openStageTrackerTab(environmentId: string): void {
+    this.openSingletonTab(environmentId, 'stage-tracker', (env) => `${env?.name ?? 'Stage Tracker'} — Stages`);
+  }
+
+  private openSingletonTab(environmentId: string, type: Tab['type'], titleFor: (env?: Environment) => string): void {
+    const existing = this.tabs.find((t) => t.type === type && t.environmentId === environmentId);
     if (existing) {
       this.activeTabId = existing.id;
       return;
     }
     const env = this.state.environments().find((e) => e.id === environmentId);
     const id = nextTabId();
-    this.tabs = [...this.tabs, { id, type: 'files', environmentId, title: `${env?.name ?? 'Files'} — Explorer` }];
+    this.tabs = [...this.tabs, { id, type, environmentId, title: titleFor(env) }];
     this.activeTabId = id;
   }
 
@@ -95,6 +111,16 @@ export class AppComponent implements OnInit {
   openFilesForSelected(): void {
     const envId = this.state.selectedEnvironmentId();
     if (envId) this.openFilesTab(envId);
+  }
+
+  openApplicationsForSelected(): void {
+    const envId = this.state.selectedEnvironmentId();
+    if (envId) this.openApplicationsTab(envId);
+  }
+
+  openStageTrackerForSelected(): void {
+    const envId = this.state.selectedEnvironmentId();
+    if (envId) this.openStageTrackerTab(envId);
   }
 
   openCreateForm(): void {

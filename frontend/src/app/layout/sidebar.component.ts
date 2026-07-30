@@ -2,16 +2,17 @@ import { Component, EventEmitter, Output } from '@angular/core';
 import { AppStateService } from '../core/app-state.service';
 import { Environment } from '../core/models';
 import { EnvironmentItemComponent } from '../environments/environment-item.component';
+import { IconComponent } from '../shared/icon.component';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [EnvironmentItemComponent],
+  imports: [EnvironmentItemComponent, IconComponent],
   template: `
     <aside class="sidebar">
       <div class="sidebar-header">
         <span>Environments</span>
-        <button class="icon-btn" type="button" title="New Environment" (click)="createEnvironment.emit()">+</button>
+        <button class="icon-btn" type="button" title="New Environment" (click)="createEnvironment.emit()"><app-icon name="plus" size="15" /></button>
       </div>
       <div class="sidebar-list">
         @if (state.environments().length === 0) {

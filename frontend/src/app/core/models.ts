@@ -60,11 +60,70 @@ export interface QuickExecuteResult {
   executedAt: string;
 }
 
-export type TabType = 'terminal' | 'files';
+export type TabType = 'terminal' | 'files' | 'applications' | 'stage-tracker';
 
 export interface Tab {
   id: string;
   type: TabType;
   environmentId: string;
   title: string;
+}
+
+// ---------- YARN applications ----------
+export interface YarnApplication {
+  applicationId: string;
+  applicationName: string;
+  applicationType: string;
+  user: string;
+  queue: string;
+  state: string;
+  finalStatus: string;
+  progressPercent: number | null;
+  trackingUrl: string | null;
+  startTime: number | null;
+  finishTime: number | null;
+}
+
+export interface YarnActionResponse {
+  success: boolean;
+  message: string;
+}
+
+// ---------- File stage tracker ----------
+export interface StageMatch {
+  applicationId: string;
+  applicationName: string;
+  state: string;
+  finalStatus: string;
+  progressPercent: number | null;
+  trackingUrl: string | null;
+  startTime: number | null;
+  finishTime: number | null;
+  elapsedMs: number;
+}
+
+export type PipelineStage = 'PREPROCESSOR' | 'VALIDATION' | 'NORMALIZATION' | 'DAAF' | 'TRANSMISSION';
+
+export interface StageGroup {
+  stage: PipelineStage;
+  label: string;
+  matches: StageMatch[];
+}
+
+export interface StageSearchResult {
+  environmentId: string;
+  filename: string;
+  searchedAt: number;
+  stages: StageGroup[];
+  unclassifiedMatches: StageMatch[];
+}
+
+export interface StageSearchHistoryEntry {
+  id: string;
+  environmentId: string;
+  environmentName: string;
+  filename: string;
+  searchedAt: number;
+  matchCount: number;
+  stageCounts: Record<string, number>;
 }

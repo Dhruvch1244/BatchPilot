@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { ConnectionStatus, Environment } from '../core/models';
+import { IconComponent } from '../shared/icon.component';
 
 const STATE_LABEL: Record<string, string> = {
   CONNECTED: 'Connected',
@@ -12,6 +13,7 @@ const STATE_LABEL: Record<string, string> = {
 @Component({
   selector: 'app-environment-item',
   standalone: true,
+  imports: [IconComponent],
   template: `
     <div class="env-item" [class.env-item-selected]="selected" (click)="select.emit()">
       <span class="health-dot" [class]="'health-' + state().toLowerCase()" [title]="stateLabel()"></span>
@@ -25,9 +27,9 @@ const STATE_LABEL: Record<string, string> = {
         </div>
       </div>
       <div class="env-item-actions" (click)="$event.stopPropagation()">
-        <button class="icon-btn" type="button" title="Edit" (click)="edit.emit()">✎</button>
-        <button class="icon-btn" type="button" title="Duplicate" (click)="duplicate.emit()">⎘</button>
-        <button class="icon-btn" type="button" title="Delete" (click)="delete.emit()">✕</button>
+        <button class="icon-btn" type="button" title="Edit" (click)="edit.emit()"><app-icon name="edit" size="14" /></button>
+        <button class="icon-btn" type="button" title="Duplicate" (click)="duplicate.emit()"><app-icon name="duplicate" size="14" /></button>
+        <button class="icon-btn icon-btn-danger" type="button" title="Delete" (click)="delete.emit()"><app-icon name="trash" size="14" /></button>
       </div>
     </div>
   `

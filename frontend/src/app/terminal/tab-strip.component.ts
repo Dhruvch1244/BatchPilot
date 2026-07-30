@@ -1,9 +1,18 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { Tab } from '../core/models';
+import { Tab, TabType } from '../core/models';
+import { IconComponent, IconName } from '../shared/icon.component';
+
+const TAB_ICONS: Record<TabType, IconName> = {
+  terminal: 'terminal',
+  files: 'folder',
+  applications: 'activity',
+  'stage-tracker': 'file-search'
+};
 
 @Component({
   selector: 'app-tab-strip',
   standalone: true,
+  imports: [IconComponent],
   template: `
     <div class="tab-strip">
       @for (tab of tabs; track tab.id) {
@@ -12,9 +21,13 @@ import { Tab } from '../core/models';
           [class.tab-strip-item-active]="tab.id === activeTabId"
           (click)="select.emit(tab.id)"
         >
-          <span class="tab-strip-icon">{{ tab.type === 'terminal' ? '⌨' : '📁' }}</span>
+          <span class="tab-strip-icon">
+            <app-icon [name]="tabIcon(tab.type)" size="13" />
+          </span>
           <span class="tab-strip-title">{{ tab.title }}</span>
-          <button class="tab-strip-close" type="button" (click)="onClose($event, tab.id)">✕</button>
+          <button class="tab-strip-close" type="button" (click)="onClose($event, tab.id)">
+            <app-icon name="close" size="12" />
+          </button>
         </div>
       }
     </div>
@@ -29,5 +42,9 @@ export class TabStripComponent {
   onClose(event: MouseEvent, id: string): void {
     event.stopPropagation();
     this.close.emit(id);
+  }
+
+  tabIcon(type: TabType): IconName {
+    return TAB_ICONS[type];
   }
 }

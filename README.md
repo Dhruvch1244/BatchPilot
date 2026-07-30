@@ -19,9 +19,9 @@ batchpilot/
 │       ├── controller/        # REST controllers
 │       ├── dto/                # Request/response payloads
 │       ├── exception/         # Global error handling
-│       ├── model/             # Domain models (Environment, AppSettings, FileEntry, ...)
-│       ├── repository/        # JSON file persistence (environments.json, settings.json)
-│       ├── service/           # Business logic (CRUD, quick execute, file manager)
+│       ├── model/             # Domain models (Environment, AppSettings, FileEntry, YarnApplication, ...)
+│       ├── repository/        # JSON file persistence (environments.json, settings.json, search-history.json)
+│       ├── service/           # Business logic (CRUD, quick execute, file manager, YARN, stage tracker)
 │       ├── ssh/               # SSH connection manager, PPK key loading
 │       └── websocket/         # Terminal WebSocket <-> PTY bridge
 ├── frontend/                  # Angular 17 (standalone components) frontend
@@ -32,8 +32,10 @@ batchpilot/
 │       ├── terminal/           # Tab strip + xterm.js terminal component (WebSocket PTY bridge)
 │       ├── quick-execute/      # Quick Execute side panel
 │       ├── file-manager/       # File manager panel (browse/upload/download)
+│       ├── applications/       # YARN running-applications view (list/kill)
+│       ├── stage-tracker/      # File pipeline stage tracker (search/kill/history)
 │       ├── settings/           # Settings modal
-│       └── shared/             # Reusable modal component
+│       └── shared/             # Reusable modal + icon components
 └── docs/
     └── ARCHITECTURE.md         # Architecture overview
 ```
@@ -61,9 +63,10 @@ containing:
 
 - `environments.json` — persisted environments (seeded with DEV and UAT presets)
 - `settings.json` — persisted application settings
+- `search-history.json` — past File Stage Tracker searches (see below)
 
-Both files are loaded at startup and written through on every change — there is
-no unsaved in-memory-only state.
+All three files are loaded at startup and written through on every change —
+there is no unsaved in-memory-only state.
 
 ## Build & run — frontend
 
@@ -185,6 +188,43 @@ colors: deep green `#006044` (primary accent), secondary olive-green `#76a923`
 for contrast rather than used verbatim everywhere. See the CSS custom
 properties under `.theme-light` / `.theme-dark` in
 `frontend/src/styles.css` to adjust.
+
+## YARN applications & the file stage tracker
+
+Two toolbar actions expose Hadoop YARN (the resource manager, *not* the JS
+package manager) over the environment's existing SSH connection — there is no
+separate connection mechanism, every call runs a `yarn` CLI command on the
+same session Terminal/Quick Execute/File Manager already share:
+
+- **Applications** — lists every YARN application (`yarn application -list
+  -appStates ALL`) with state, progress, and a kill action
+  (`yarn application -kill <id>`) for anything not yet finished. Auto-refreshes
+  every 8 seconds.
+- **Stage Tracker** — searches by filename and shows which YARN applications
+  correspond to it, grouped into the five pipeline stages (Preprocessor,
+  Validation, Normalization, Daaf, Transmission) with per-stage timing pulled
+  from `yarn application -status` (`Start-Time`/`Finish-Time`) and a kill
+  action per match. A file can have multiple matches per stage (re-runs) —
+  every match is shown, not collapsed into one. Every search is appended to
+  `search-history.json` and surfaced as clickable chips in the panel; clicking
+  one re-runs a fresh search rather than replaying stale state, since
+  application status changes over time.
+
+  **Stage classification is a v1 heuristic, not ground truth.** There is no
+  connection wired up to the pipeline's own status database (a "Daaf DB")
+  that would give an authoritative per-file stage — instead,
+  `PipelineStage.matchApplicationName` (`backend/.../model/PipelineStage.java`)
+  infers a stage from a keyword in the YARN application's *name*
+  (`Preprocessor_<file>` → Preprocessor, etc.). Applications whose name
+  doesn't contain a recognized keyword show up under "Other matches" rather
+  than being silently dropped. Wiring this to a real status source instead of
+  name-matching is the natural next step if/when that database is reachable
+  from the backend.
+
+  Every `applicationId` is validated against YARN's own ID format
+  (`application_<timestamp>_<sequence>`) in `YarnService` before being
+  interpolated into any shell command — exec channels run through a remote
+  shell, so this guards against command injection via a crafted ID.
 
 ## Security notes
 
