@@ -94,9 +94,13 @@ by any static file server or reverse-proxied alongside the backend.
   published (the same "let brand-new packages age before trusting them"
   principle behind this project's own `min-release-age` policy, just
   enforced server-side on their end instead of client-side). `postcss` is
-  already pinned to a long-stable `8.4.x` release via `overrides` in
-  `package.json` for this reason; if a *different* package hits the same
-  wall, add a similar `overrides` entry pinning it to an older version and
+  already pinned via `overrides` in `package.json` to `8.4.21` — the exact
+  version confirmed present in the Fidelity Artifactory `npm-prereleases`
+  mirror (check `<your-registry>/postcss/` in a browser to see what your
+  own registry actually has cached under `versions`; its `dist-tags.latest`
+  field is not reliable evidence that version is downloadable). If a
+  *different* package hits the same wall, or your registry's mirrored
+  version changes, add/update an `overrides` entry the same way and
   regenerate the lockfile (`rm -rf node_modules package-lock.json && npm
   install`).
 - **`EPERM: operation not permitted, rmdir ...` warnings on Windows** during
