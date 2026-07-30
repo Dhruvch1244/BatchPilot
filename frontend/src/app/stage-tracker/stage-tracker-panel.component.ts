@@ -37,26 +37,6 @@ function formatDuration(ms: number): string {
   imports: [FormsModule, DatePipe, NgTemplateOutlet, IconComponent, LogsModalComponent],
   template: `
     <div class="stage-tracker-panel">
-      <aside class="stage-tracker-sidebar">
-        <div class="stage-tracker-sidebar-header">Recent searches</div>
-        @if (history.length === 0) {
-          <div class="stage-empty" style="padding: 12px 4px;">No searches yet.</div>
-        }
-        @for (h of history; track h.id) {
-          <button
-            class="stage-history-item"
-            type="button"
-            [class.stage-history-item-active]="h.filename === query"
-            [title]="h.environmentName"
-            (click)="rerun(h)"
-          >
-            <app-icon name="file-search" size="13" />
-            <span class="stage-history-name">{{ h.filename }}</span>
-            <span class="stage-history-count">{{ h.matchCount }}</span>
-          </button>
-        }
-      </aside>
-
       <div class="stage-tracker-main">
         <div class="stage-tracker-main-inner">
           <div class="stage-search-bar">
@@ -137,6 +117,26 @@ function formatDuration(ms: number): string {
           }
         </div>
       </div>
+
+      <aside class="stage-tracker-sidebar">
+        <div class="stage-tracker-sidebar-header">Recent searches</div>
+        @if (history.length === 0) {
+          <div class="stage-empty" style="padding: 12px 4px;">No searches yet.</div>
+        }
+        @for (h of history; track h.id) {
+          <button
+            class="stage-history-item"
+            type="button"
+            [class.stage-history-item-active]="h.filename === query"
+            [title]="h.environmentName"
+            (click)="rerun(h)"
+          >
+            <app-icon name="file-search" size="13" />
+            <span class="stage-history-name">{{ h.filename }}</span>
+            <span class="stage-history-count">{{ h.matchCount }}</span>
+          </button>
+        }
+      </aside>
 
       <ng-template #matchRow let-m let-file="file">
         <div class="app-card app-card-clickable" title="Click to focus on just this file" (click)="focusFile(file)">
