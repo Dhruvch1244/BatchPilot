@@ -23,25 +23,29 @@ input, select, textarea {
   font-size: inherit;
 }
 
-/* ---------- Theme tokens ---------- */
+/* ---------- Theme tokens ----------
+   Accent family is Fidelity Investments' brand palette: deep green #006044
+   (primary), secondary olive-green #76a923 (status/success), and muted gold
+   #af8a49 (warning) — sourced from public brand-color references, tuned per
+   theme for contrast rather than used verbatim everywhere. */
 .theme-dark {
   color-scheme: dark;
   --bg-app: #1e1e1e;
   --bg-panel: #252526;
   --bg-panel-alt: #2d2d30;
   --bg-hover: #37373d;
-  --bg-selected: #0a5088;
-  --bg-selected-text: #ffffff;
+  --bg-selected: #123d2c;
+  --bg-selected-text: #eafff2;
   --border: #3c3c3c;
   --border-strong: #505054;
   --text: #d4d4d4;
   --text-dim: #9d9d9d;
-  --accent: #3794ff;
-  --accent-hover: #529eff;
+  --accent: #17a370;
+  --accent-hover: #1ec089;
   --accent-contrast: #ffffff;
-  --success: #4caf50;
+  --success: #9ccc3d;
   --error: #f14c4c;
-  --warning: #d7ba7d;
+  --warning: #d4b06a;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
   --overlay: rgba(0, 0, 0, 0.55);
@@ -49,28 +53,29 @@ input, select, textarea {
   --scrollbar-thumb-hover: #6b6b6d;
 }
 
-/* High-fidelity light theme: crisp near-white surfaces, GitHub/VS-Code-Light
-   inspired palette, layered borders + soft shadows for depth instead of
-   dark-mode's flat color blocks (which read fine on dark, but flat on
-   white). Every accent below is tuned for >= 4.5:1 contrast on #ffffff. */
+/* Fidelity-branded light theme: crisp near-white surfaces with the deep
+   Fidelity green (#006044) as the primary accent, secondary olive-green for
+   status, and gold for warnings. Layered borders + soft shadows carry the
+   elevation cues; every accent below is tuned for >= 4.5:1 contrast on
+   #ffffff where used as text. */
 .theme-light {
   color-scheme: light;
   --bg-app: #ffffff;
   --bg-panel: #f6f8fa;
   --bg-panel-alt: #eef1f4;
   --bg-hover: #e7ecf1;
-  --bg-selected: #cfe8fd;
-  --bg-selected-text: #0b3d78;
+  --bg-selected: #d7ece2;
+  --bg-selected-text: #00432f;
   --border: #e3e6ea;
   --border-strong: #c9ced6;
   --text: #1d2129;
   --text-dim: #5c6470;
-  --accent: #0969da;
-  --accent-hover: #0757ba;
+  --accent: #006044;
+  --accent-hover: #00432f;
   --accent-contrast: #ffffff;
-  --success: #1a7f37;
+  --success: #4f7a1f;
   --error: #cf222e;
-  --warning: #9a6700;
+  --warning: #8a6d33;
   --shadow-sm: 0 1px 2px rgba(31, 35, 40, 0.06), 0 1px 1px rgba(31, 35, 40, 0.04);
   --shadow-md: 0 12px 28px rgba(31, 35, 40, 0.12), 0 2px 6px rgba(31, 35, 40, 0.08);
   --overlay: rgba(31, 35, 40, 0.32);

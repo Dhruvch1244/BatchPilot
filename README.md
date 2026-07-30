@@ -100,6 +100,15 @@ Application-level settings (font size, theme, auto-reconnect, max tabs, upload
 limits) are editable from the Settings dialog in the UI and persisted to
 `settings.json`.
 
+### Theme palette
+
+Both the light and dark themes are built around Fidelity Investments' brand
+colors: deep green `#006044` (primary accent), secondary olive-green `#76a923`
+(status/success family), and muted gold `#af8a49` (warnings) — tuned per shade
+for contrast rather than used verbatim everywhere. See the CSS custom
+properties under `.theme-light` / `.theme-dark` in
+`frontend/src/index.css` to adjust.
+
 ## Security notes
 
 - PPK private key **contents are never transmitted, logged, or returned** by
