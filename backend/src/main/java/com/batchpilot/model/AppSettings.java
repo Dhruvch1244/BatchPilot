@@ -17,5 +17,5 @@ public class AppSettings {
     private int reconnectIntervalSeconds = 5;
     private int maxReconnectAttempts = 5;
     private int maxTabs = 10;
-    private long maxUploadSizeMb = 512;
+    private long maxUploadSizeMb = 2048;
 }

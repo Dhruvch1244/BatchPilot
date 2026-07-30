@@ -50,16 +50,16 @@
         </div>
       }
     </main>
-
-    @if (quickExecuteOpen) {
-      <app-quick-execute-panel
-        [environmentId]="state.selectedEnvironmentId()"
-        (close)="quickExecuteOpen = false"
-      ></app-quick-execute-panel>
-    }
   </div>
 
   <app-status-bar></app-status-bar>
+
+  @if (quickExecuteOpen) {
+    <app-quick-execute-panel
+      [environmentId]="state.selectedEnvironmentId()"
+      (close)="quickExecuteOpen = false"
+    ></app-quick-execute-panel>
+  }
 
   @if (settingsOpen) {
     <app-settings-modal (close)="settingsOpen = false"></app-settings-modal>

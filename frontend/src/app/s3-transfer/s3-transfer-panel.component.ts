@@ -150,7 +150,8 @@ function joinPath(directory: string, name: string): string {
     </div>
   `,
   styles: [`
-    .s3-transfer-panel { flex: 1; overflow-y: auto; padding: 20px; max-width: 560px; }
+    .s3-transfer-panel { flex: 1; overflow-y: auto; padding: 24px; }
+    .s3-transfer-panel .form { width: 100%; max-width: 640px; margin: 0 auto; }
     .form-field-row-group { display: flex; gap: 12px; }
     .form-field-row-group .form-field { flex: 1; }
     .s3-command-preview {
