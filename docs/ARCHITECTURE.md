@@ -24,6 +24,24 @@ single origin in production:
                                                           └──────────────────────┘
 ```
 
+## Release packaging
+
+`release.sh` is what turns the two-process dev setup into the single-origin
+deployment the diagram above describes: it builds the Angular app for
+production, copies its output into `backend/src/main/resources/static/`
+(gitignored — regenerated on every release build, never committed), and then
+builds the backend jar. Spring Boot's default static-resource handling
+serves that embedded `index.html`/JS/CSS at `/` with no extra configuration
+needed — the app has no client-side routing (all navigation is in-memory tab
+state, not URL-driven), so there's no SPA-fallback controller to write
+either; the same jar answers `/api/**`, `/ws/**`, and everything else.
+
+The result is one executable jar (`BatchPilot.jar`) that's the entire app —
+handed to someone with only Java 17+ installed, `java -jar BatchPilot.jar`
+(or one of the `packaging/` launcher scripts) is a complete, working
+BatchPilot instance. See the README's "Building a shareable release" section
+for what's in the release folder and how to launch it.
+
 ## Backend layers
 
 The backend follows a conventional layered architecture, kept intentionally
