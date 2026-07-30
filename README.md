@@ -89,20 +89,31 @@ by any static file server or reverse-proxied alongside the backend.
 ### Troubleshooting `npm install`
 
 - **`403 Forbidden` from a corporate npm registry/Artifactory on a specific
-  package version** (e.g. `postcss@8.5.x`) — your org's registry hasn't
-  mirrored/approved that version yet, usually because it's very recently
-  published (the same "let brand-new packages age before trusting them"
-  principle behind this project's own `min-release-age` policy, just
-  enforced server-side on their end instead of client-side). `postcss` is
-  already pinned via `overrides` in `package.json` to `8.4.21` — the exact
-  version confirmed present in the Fidelity Artifactory `npm-prereleases`
-  mirror (check `<your-registry>/postcss/` in a browser to see what your
-  own registry actually has cached under `versions`; its `dist-tags.latest`
-  field is not reliable evidence that version is downloadable). If a
-  *different* package hits the same wall, or your registry's mirrored
-  version changes, add/update an `overrides` entry the same way and
-  regenerate the lockfile (`rm -rf node_modules package-lock.json && npm
-  install`).
+  package version** (e.g. `postcss@8.5.x`, `flatted@3.x`) — your org's
+  registry hasn't mirrored/approved that version yet, usually because it's
+  very recently published (the same "let brand-new packages age before
+  trusting them" principle behind this project's own `min-release-age`
+  policy, just enforced server-side on their end instead of client-side).
+  Check `<your-registry>/<package-name>/` in a browser to see what your
+  registry actually has cached under `versions` — its `dist-tags.latest`
+  field is **not** reliable evidence that version is downloadable; it can
+  point at a version the registry has metadata for but never actually
+  mirrored the tarball of.
+  - If the offending package is a **real dependency** (i.e. something the
+    app actually needs, like `postcss`, pulled in by Angular's dev-server
+    tooling), pin it via `overrides` in `package.json` to the exact version
+    your registry has, then regenerate the lockfile (`rm -rf node_modules
+    package-lock.json && npm install`). `postcss` is already pinned this
+    way, to `8.4.21`.
+  - If it's coming from tooling this project doesn't actually use, prefer
+    removing that tooling outright instead of chasing its transitive
+    dependencies one at a time. That's how `flatted@3.x` (via `log4js` via
+    `karma`, Angular's default *unused* test runner — there are no `.spec.ts`
+    files in this project) was resolved: `karma`/`karma-*`/`jasmine-core`/
+    `@types/jasmine` were removed from `devDependencies`, along with the
+    `test` target in `angular.json` and `tsconfig.spec.json`, eliminating
+    the whole subtree rather than pinning `flatted` to whatever ancient
+    version happened to be mirrored.
 - **`EPERM: operation not permitted, rmdir ...` warnings on Windows** during
   `npm install` — a file in `node_modules` is locked by another process
   (antivirus real-time scanning, an IDE, or OneDrive sync watching the
