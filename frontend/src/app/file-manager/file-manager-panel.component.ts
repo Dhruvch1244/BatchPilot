@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { FileEntry } from '../core/models';
+import { IconComponent } from '../shared/icon.component';
 
 type ViewMode = 'table' | 'grid';
 
@@ -22,7 +23,7 @@ function formatSize(bytes: number): string {
 @Component({
   selector: 'app-file-manager-panel',
   standalone: true,
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, IconComponent],
   template: `
     <div
       class="file-manager"
@@ -33,18 +34,21 @@ function formatSize(bytes: number): string {
     >
       <div class="file-manager-toolbar">
         <button class="btn" type="button" [disabled]="path === '.' || path === '/'" (click)="navigateUp()">
-          ↑ Up
+          <app-icon name="chevron-up" size="14" /> Up
         </button>
         <input class="file-manager-path" [(ngModel)]="path" (keydown.enter)="load()" />
-        <input class="file-manager-search" placeholder="Search…" [(ngModel)]="search" (ngModelChange)="load()" />
+        <span class="input-with-icon">
+          <app-icon name="search" size="13" />
+          <input class="file-manager-search" placeholder="Search…" [(ngModel)]="search" (ngModelChange)="load()" />
+        </span>
         <button class="btn" type="button" (click)="fileInput.click()">Upload</button>
         <input #fileInput type="file" multiple hidden (change)="onFileInputChange($event)" />
         <button class="btn" type="button" [disabled]="selected.size === 0" (click)="downloadSelected()">
-          Download ({{ selected.size }})
+          <app-icon name="download" size="14" /> Download ({{ selected.size }})
         </button>
         <div class="view-toggle">
-          <button type="button" [class.active]="view === 'table'" (click)="view = 'table'">☰</button>
-          <button type="button" [class.active]="view === 'grid'" (click)="view = 'grid'">▦</button>
+          <button type="button" [class.active]="view === 'table'" title="Table view" (click)="view = 'table'"><app-icon name="list" size="15" /></button>
+          <button type="button" [class.active]="view === 'grid'" title="Grid view" (click)="view = 'grid'"><app-icon name="grid" size="15" /></button>
         </div>
       </div>
 
@@ -85,7 +89,10 @@ function formatSize(bytes: number): string {
                     (change)="toggleSelect(entry.path)"
                   />
                 </td>
-                <td>{{ entry.directory ? '📁' : '📄' }} {{ entry.name }}</td>
+                <td class="file-name-cell">
+                  <app-icon [name]="entry.directory ? 'folder' : 'file'" size="15" />
+                  {{ entry.name }}
+                </td>
                 <td>{{ entry.directory ? '—' : formatSize(entry.size) }}</td>
                 <td>{{ entry.lastModified ? (entry.lastModified | date: 'medium') : '—' }}</td>
                 <td>{{ entry.permissions }}</td>
@@ -104,7 +111,7 @@ function formatSize(bytes: number): string {
               (click)="toggleSelect(entry.path)"
               (dblclick)="navigateInto(entry)"
             >
-              <div class="file-grid-icon">{{ entry.directory ? '📁' : '📄' }}</div>
+              <div class="file-grid-icon"><app-icon [name]="entry.directory ? 'folder' : 'file'" size="28" /></div>
               <div class="file-grid-name">{{ entry.name }}</div>
               @if (!entry.directory) {
                 <div class="file-grid-size">{{ formatSize(entry.size) }}</div>

@@ -32,8 +32,10 @@ thin so each layer has one job:
 1. **`controller`** — REST endpoints. Translate HTTP requests to service calls
    and back to DTOs. No business logic.
 2. **`service`** — Business logic: environment CRUD/duplication rules, quick
-   execute orchestration, file manager operations. Depends on the SSH layer
-   and repositories, never on Spring MVC types.
+   execute orchestration, file manager operations, YARN application
+   list/status/kill/logs (`YarnService`), and file-to-pipeline-stage matching
+   (`StageTrackerService`). Depends on the SSH layer and repositories, never
+   on Spring MVC types.
 3. **`ssh`** — Everything related to live SSH state:
    - `SshClientProvider` — one shared Apache MINA SSHD `SshClient` for the
      whole app (started once, stopped on shutdown).
@@ -95,6 +97,30 @@ channel on the environment's shared SSH session. The wire protocol mixes:
 Closing the tab closes its WebSocket, which closes its PTY channel — the
 underlying SSH session for the environment stays open for other tabs.
 
+## YARN integration & file stage tracker
+
+`YarnService` runs a small, fixed set of `yarn` CLI commands
+(`application -list`, `application -status`, `application -kill`, `logs`)
+over the same SSH exec-channel mechanism `QuickExecuteService` uses — it
+reuses `SshConnectionManager.getActiveSession`, so there is no separate
+connection to YARN itself; the resource manager is just reachable from a
+shell on the environment. Output parsing is hand-rolled (tab-separated for
+`-list`, `key : value` lines for `-status`) since there's no JSON output mode
+available on the CLI in general. Every `applicationId` path variable is
+validated against YARN's own ID format before being interpolated into a
+command string, since exec channels run through a remote shell.
+
+`StageTrackerService` builds on top of `YarnService`: given a filename, it
+lists all applications, filters to ones whose name contains the search term,
+and classifies each into one of the five pipeline stages (Preprocessor,
+Validation, Normalization, Daaf, Transmission) via
+`PipelineStage.matchApplicationName` — a keyword-in-name heuristic, not a
+lookup against the pipeline's actual status database (not wired up). Each
+match is re-fetched via `-status` for accurate `Start-Time`/`Finish-Time`
+(the `-list` output doesn't carry timestamps). Every search is persisted to
+`search-history.json` via `StageSearchHistoryRepository`, following the same
+load-once/write-through pattern as `EnvironmentRepository`.
+
 ## File manager
 
 `FileManagerService` opens a short-lived SFTP client (Apache MINA SSHD
@@ -136,14 +162,31 @@ automatically on change with no manual subscription management.
   requirements; owns open-tab state (`Tab[]`, each tab is either a `terminal`
   or `files` tab bound to one environment) and the settings/environment-form
   modal visibility.
-- **`terminal/terminal-tab.component.ts`** — wraps one `@xterm/xterm`
-  instance plus its `FitAddon`/`WebLinksAddon` and WebSocket connection;
-  reacts to font-size/theme changes via an Angular `effect()` over the
-  settings signal, and to tab activation via `ngOnChanges`.
-- **`file-manager/`**, **`quick-execute/`**, **`settings/`**,
-  **`environments/`** — one component per feature area, each talking to the
-  backend through `ApiService` (or `AppStateService` where the action needs
-  to update shared state).
+- **`terminal/terminal-tab.component.ts`** — wraps one `xterm` (v4.6.0 —
+  see the note on the unscoped package name below) instance plus its
+  `FitAddon`/`WebLinksAddon` and WebSocket connection; reacts to
+  font-size/theme changes via an Angular `effect()` calling `setOption()`
+  (xterm 4.x has no writable `.options`, unlike 5.x) over the settings
+  signal, and to tab activation via `ngOnChanges`.
+- **`file-manager/`**, **`quick-execute/`**, **`applications/`**,
+  **`stage-tracker/`**, **`settings/`**, **`environments/`** — one component
+  per feature area, each talking to the backend through `ApiService` (or
+  `AppStateService` where the action needs to update shared state).
+- **`shared/icon.component.ts`** — a single `<app-icon name="...">` component
+  rendering a small hand-maintained set of inline SVG (Lucide-style, 24x24,
+  stroke-based) icons, used everywhere the UI previously used unicode glyphs
+  (✎, ✕, 📁, ...). No icon font or external asset — every icon inherits
+  `currentColor`, so it themes for free.
+
+## Visual design
+
+The UI follows an Apple/shadcn-inspired language on top of the Fidelity
+palette: low-contrast hairline borders (`rgba` over solid greys) instead of
+heavy chrome, a wider corner-radius scale (`--radius-sm` through
+`--radius-xl` in `styles.css`), soft multi-layer shadows for elevation
+(toolbar/modals/panels), and consistent icon+label buttons. All of this lives
+in CSS custom properties per theme (`.theme-light`/`.theme-dark`), so
+component templates never hardcode colors, radii, or shadows directly.
 
 ## Non-functional considerations
 

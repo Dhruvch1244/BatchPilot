@@ -7,7 +7,11 @@ import {
   Environment,
   EnvironmentRequest,
   FileEntry,
-  QuickExecuteResult
+  QuickExecuteResult,
+  StageSearchHistoryEntry,
+  StageSearchResult,
+  YarnActionResponse,
+  YarnApplication
 } from './models';
 
 export interface UploadProgress {
@@ -106,6 +110,32 @@ export class ApiService {
       });
       return () => sub.unsubscribe();
     });
+  }
+
+  // ---------- YARN applications ----------
+  listYarnApplications(environmentId: string): Observable<YarnApplication[]> {
+    return this.http.get<YarnApplication[]>(`/api/environments/${environmentId}/yarn/applications`);
+  }
+
+  killYarnApplication(environmentId: string, applicationId: string): Observable<YarnActionResponse> {
+    return this.http.post<YarnActionResponse>(
+      `/api/environments/${environmentId}/yarn/applications/${applicationId}/kill`,
+      {}
+    );
+  }
+
+  // ---------- File stage tracker ----------
+  searchStages(environmentId: string, filename: string): Observable<StageSearchResult> {
+    const params = new HttpParams().set('filename', filename);
+    return this.http.get<StageSearchResult>(`/api/environments/${environmentId}/stage-tracker/search`, { params });
+  }
+
+  stageSearchHistory(): Observable<StageSearchHistoryEntry[]> {
+    return this.http.get<StageSearchHistoryEntry[]>('/api/stage-tracker/history');
+  }
+
+  clearStageSearchHistory(): Observable<void> {
+    return this.http.delete<void>('/api/stage-tracker/history');
   }
 
   // ---------- Settings ----------

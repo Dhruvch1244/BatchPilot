@@ -1,14 +1,16 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { IconComponent } from './icon.component';
 
 @Component({
   selector: 'app-modal',
   standalone: true,
+  imports: [IconComponent],
   template: `
     <div class="modal-overlay" (click)="close.emit()">
       <div class="modal" [style.width.px]="width" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <span>{{ title }}</span>
-          <button class="icon-btn" type="button" (click)="close.emit()">✕</button>
+          <button class="icon-btn" type="button" (click)="close.emit()"><app-icon name="close" size="16" /></button>
         </div>
         <div class="modal-body">
           <ng-content></ng-content>

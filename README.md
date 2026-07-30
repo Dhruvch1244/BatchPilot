@@ -19,9 +19,9 @@ batchpilot/
 │       ├── controller/        # REST controllers
 │       ├── dto/                # Request/response payloads
 │       ├── exception/         # Global error handling
-│       ├── model/             # Domain models (Environment, AppSettings, FileEntry, ...)
-│       ├── repository/        # JSON file persistence (environments.json, settings.json)
-│       ├── service/           # Business logic (CRUD, quick execute, file manager)
+│       ├── model/             # Domain models (Environment, AppSettings, FileEntry, YarnApplication, ...)
+│       ├── repository/        # JSON file persistence (environments.json, settings.json, search-history.json)
+│       ├── service/           # Business logic (CRUD, quick execute, file manager, YARN, stage tracker)
 │       ├── ssh/               # SSH connection manager, PPK key loading
 │       └── websocket/         # Terminal WebSocket <-> PTY bridge
 ├── frontend/                  # Angular 17 (standalone components) frontend
@@ -32,8 +32,10 @@ batchpilot/
 │       ├── terminal/           # Tab strip + xterm.js terminal component (WebSocket PTY bridge)
 │       ├── quick-execute/      # Quick Execute side panel
 │       ├── file-manager/       # File manager panel (browse/upload/download)
+│       ├── applications/       # YARN running-applications view (list/kill)
+│       ├── stage-tracker/      # File pipeline stage tracker (search/kill/history)
 │       ├── settings/           # Settings modal
-│       └── shared/             # Reusable modal component
+│       └── shared/             # Reusable modal + icon components
 └── docs/
     └── ARCHITECTURE.md         # Architecture overview
 ```
@@ -61,9 +63,10 @@ containing:
 
 - `environments.json` — persisted environments (seeded with DEV and UAT presets)
 - `settings.json` — persisted application settings
+- `search-history.json` — past File Stage Tracker searches (see below)
 
-Both files are loaded at startup and written through on every change — there is
-no unsaved in-memory-only state.
+All three files are loaded at startup and written through on every change —
+there is no unsaved in-memory-only state.
 
 ## Build & run — frontend
 
@@ -89,20 +92,64 @@ by any static file server or reverse-proxied alongside the backend.
 ### Troubleshooting `npm install`
 
 - **`403 Forbidden` from a corporate npm registry/Artifactory on a specific
-  package version** (e.g. `postcss@8.5.x`) — your org's registry hasn't
-  mirrored/approved that version yet, usually because it's very recently
-  published (the same "let brand-new packages age before trusting them"
-  principle behind this project's own `min-release-age` policy, just
-  enforced server-side on their end instead of client-side). `postcss` is
-  already pinned via `overrides` in `package.json` to `8.4.21` — the exact
-  version confirmed present in the Fidelity Artifactory `npm-prereleases`
-  mirror (check `<your-registry>/postcss/` in a browser to see what your
-  own registry actually has cached under `versions`; its `dist-tags.latest`
-  field is not reliable evidence that version is downloadable). If a
-  *different* package hits the same wall, or your registry's mirrored
-  version changes, add/update an `overrides` entry the same way and
-  regenerate the lockfile (`rm -rf node_modules package-lock.json && npm
-  install`).
+  package version** (e.g. `postcss@8.5.x`, `flatted@3.x`) — your org's
+  registry hasn't mirrored/approved that version yet, usually because it's
+  very recently published (the same "let brand-new packages age before
+  trusting them" principle behind this project's own `min-release-age`
+  policy, just enforced server-side on their end instead of client-side).
+  Check `<your-registry>/<package-name>/` in a browser to see what your
+  registry actually has cached under `versions` — its `dist-tags.latest`
+  field is **not** reliable evidence that version is downloadable; it can
+  point at a version the registry has metadata for but never actually
+  mirrored the tarball of.
+  - If the offending package is a **real dependency** (i.e. something the
+    app actually needs, like `postcss`, pulled in by Angular's dev-server
+    tooling), pin it via `overrides` in `package.json` to the exact version
+    your registry has, then regenerate the lockfile (`rm -rf node_modules
+    package-lock.json && npm install`). `postcss` is already pinned this
+    way, to `8.4.21`.
+  - If it's coming from tooling this project doesn't actually use, prefer
+    removing that tooling outright instead of chasing its transitive
+    dependencies one at a time. That's how `flatted@3.x` (via `log4js` via
+    `karma`, Angular's default *unused* test runner — there are no `.spec.ts`
+    files in this project) was resolved: `karma`/`karma-*`/`jasmine-core`/
+    `@types/jasmine` were removed from `devDependencies`, along with the
+    `test` target in `angular.json` and `tsconfig.spec.json`, eliminating
+    the whole subtree rather than pinning `flatted` to whatever ancient
+    version happened to be mirrored.
+  - Don't pin a version speculatively "just in case" without confirming it's
+    actually on your registry first (an earlier revision of this project did
+    exactly that for `brace-expansion`, forcing a version that turned out not
+    to exist there at all — an `ETARGET` error, not `403`, but the same root
+    cause: guessing instead of checking `<your-registry>/<package-name>/`).
+  - Even a version mismatch against a package's own stated peer/dependency
+    range isn't automatically fatal. `enhanced-resolve` is a hard,
+    non-optional dependency of `webpack`, itself a hard dependency of
+    `@angular-devkit/build-angular` — `webpack` declares it needs
+    `enhanced-resolve@^5.17.1`, but this project pins it to `4.5.0` via
+    `overrides` anyway. That's safe here specifically because Angular 17's
+    `application`/`dev-server` builders (what `ng build`/`ng serve` use in
+    this project) are esbuild/Vite-based and never actually execute
+    webpack's code paths — `webpack` and `enhanced-resolve` sit in
+    `node_modules` unused. Verified end-to-end (`ng build`, `ng serve`, and
+    a full SSH-backed session in both themes) with zero regressions before
+    relying on this. Don't assume the same holds for every mismatched pin —
+    check whether the code path that needs the "real" version is actually
+    reachable in how you invoke the tool before trusting an override like
+    this one.
+- **xterm.js pinned to the old unscoped `xterm` package, not `@xterm/xterm`**
+  — xterm.js renamed its npm scope starting at v5.0 (`xterm` →
+  `@xterm/xterm`, `xterm-addon-*` → `@xterm/addon-*`); this project uses
+  `xterm@4.6.0` with `xterm-addon-fit@0.5.0` and
+  `xterm-addon-web-links@0.6.0` (the newest versions of each still
+  peer-compatible with 4.x) because that's what's available on the
+  registry this project was set up against. The two are **not**
+  drop-in-compatible: 4.x has no writable `Terminal.options` (use
+  `term.setOption(key, value)` instead), and the theme key is `selection`,
+  not `selectionBackground`. If your registry does carry the `@xterm/*`
+  scope, switching back is straightforward — swap the four package names
+  in `package.json`/`angular.json`/`terminal-tab.component.ts` and reverse
+  those two API differences.
 - **`EPERM: operation not permitted, rmdir ...` warnings on Windows** during
   `npm install` — a file in `node_modules` is locked by another process
   (antivirus real-time scanning, an IDE, or OneDrive sync watching the
@@ -141,6 +188,43 @@ colors: deep green `#006044` (primary accent), secondary olive-green `#76a923`
 for contrast rather than used verbatim everywhere. See the CSS custom
 properties under `.theme-light` / `.theme-dark` in
 `frontend/src/styles.css` to adjust.
+
+## YARN applications & the file stage tracker
+
+Two toolbar actions expose Hadoop YARN (the resource manager, *not* the JS
+package manager) over the environment's existing SSH connection — there is no
+separate connection mechanism, every call runs a `yarn` CLI command on the
+same session Terminal/Quick Execute/File Manager already share:
+
+- **Applications** — lists every YARN application (`yarn application -list
+  -appStates ALL`) with state, progress, and a kill action
+  (`yarn application -kill <id>`) for anything not yet finished. Auto-refreshes
+  every 8 seconds.
+- **Stage Tracker** — searches by filename and shows which YARN applications
+  correspond to it, grouped into the five pipeline stages (Preprocessor,
+  Validation, Normalization, Daaf, Transmission) with per-stage timing pulled
+  from `yarn application -status` (`Start-Time`/`Finish-Time`) and a kill
+  action per match. A file can have multiple matches per stage (re-runs) —
+  every match is shown, not collapsed into one. Every search is appended to
+  `search-history.json` and surfaced as clickable chips in the panel; clicking
+  one re-runs a fresh search rather than replaying stale state, since
+  application status changes over time.
+
+  **Stage classification is a v1 heuristic, not ground truth.** There is no
+  connection wired up to the pipeline's own status database (a "Daaf DB")
+  that would give an authoritative per-file stage — instead,
+  `PipelineStage.matchApplicationName` (`backend/.../model/PipelineStage.java`)
+  infers a stage from a keyword in the YARN application's *name*
+  (`Preprocessor_<file>` → Preprocessor, etc.). Applications whose name
+  doesn't contain a recognized keyword show up under "Other matches" rather
+  than being silently dropped. Wiring this to a real status source instead of
+  name-matching is the natural next step if/when that database is reachable
+  from the backend.
+
+  Every `applicationId` is validated against YARN's own ID format
+  (`application_<timestamp>_<sequence>`) in `YarnService` before being
+  interpolated into any shell command — exec channels run through a remote
+  shell, so this guards against command injection via a crafted ID.
 
 ## Security notes
 
