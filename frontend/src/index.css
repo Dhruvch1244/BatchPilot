@@ -1,7 +1,3 @@
-:root {
-  color-scheme: dark;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -29,33 +25,84 @@ input, select, textarea {
 
 /* ---------- Theme tokens ---------- */
 .theme-dark {
+  color-scheme: dark;
   --bg-app: #1e1e1e;
   --bg-panel: #252526;
   --bg-panel-alt: #2d2d30;
   --bg-hover: #37373d;
-  --bg-selected: #094771;
+  --bg-selected: #0a5088;
+  --bg-selected-text: #ffffff;
   --border: #3c3c3c;
+  --border-strong: #505054;
   --text: #d4d4d4;
   --text-dim: #9d9d9d;
-  --accent: #007acc;
+  --accent: #3794ff;
+  --accent-hover: #529eff;
+  --accent-contrast: #ffffff;
   --success: #4caf50;
   --error: #f14c4c;
-  --warning: #cca700;
+  --warning: #d7ba7d;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --overlay: rgba(0, 0, 0, 0.55);
+  --scrollbar-thumb: #4d4d4f;
+  --scrollbar-thumb-hover: #6b6b6d;
 }
 
+/* High-fidelity light theme: crisp near-white surfaces, GitHub/VS-Code-Light
+   inspired palette, layered borders + soft shadows for depth instead of
+   dark-mode's flat color blocks (which read fine on dark, but flat on
+   white). Every accent below is tuned for >= 4.5:1 contrast on #ffffff. */
 .theme-light {
+  color-scheme: light;
   --bg-app: #ffffff;
-  --bg-panel: #f3f3f3;
-  --bg-panel-alt: #ececec;
-  --bg-hover: #e4e6f1;
-  --bg-selected: #cce4f7;
-  --border: #d4d4d4;
-  --text: #1e1e1e;
-  --text-dim: #6e6e6e;
-  --accent: #007acc;
-  --success: #2e7d32;
-  --error: #c62828;
-  --warning: #b28900;
+  --bg-panel: #f6f8fa;
+  --bg-panel-alt: #eef1f4;
+  --bg-hover: #e7ecf1;
+  --bg-selected: #cfe8fd;
+  --bg-selected-text: #0b3d78;
+  --border: #e3e6ea;
+  --border-strong: #c9ced6;
+  --text: #1d2129;
+  --text-dim: #5c6470;
+  --accent: #0969da;
+  --accent-hover: #0757ba;
+  --accent-contrast: #ffffff;
+  --success: #1a7f37;
+  --error: #cf222e;
+  --warning: #9a6700;
+  --shadow-sm: 0 1px 2px rgba(31, 35, 40, 0.06), 0 1px 1px rgba(31, 35, 40, 0.04);
+  --shadow-md: 0 12px 28px rgba(31, 35, 40, 0.12), 0 2px 6px rgba(31, 35, 40, 0.08);
+  --overlay: rgba(31, 35, 40, 0.32);
+  --scrollbar-thumb: #d0d5db;
+  --scrollbar-thumb-hover: #b5bcc5;
+}
+
+/* Thin, theme-aware scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
 }
 
 /* ---------- App shell ---------- */
@@ -83,6 +130,9 @@ input, select, textarea {
   padding: 0 12px;
   background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
 }
 
@@ -108,14 +158,18 @@ input, select, textarea {
 .btn {
   background: var(--bg-panel-alt);
   color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
   padding: 5px 10px;
-  transition: background 0.1s;
+  transition: background 0.1s, border-color 0.1s, box-shadow 0.1s;
 }
 
 .btn:hover:not(:disabled) {
   background: var(--bg-hover);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0.5px);
 }
 
 .btn:disabled {
@@ -126,11 +180,22 @@ input, select, textarea {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #1a8ad4;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn:focus-visible,
+.icon-btn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .icon-btn {
@@ -153,6 +218,7 @@ input, select, textarea {
   flex-shrink: 0;
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
 }
@@ -186,6 +252,8 @@ input, select, textarea {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
+  padding-left: 9px;
+  border-left: 3px solid transparent;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
 }
@@ -196,6 +264,13 @@ input, select, textarea {
 
 .env-item-selected {
   background: var(--bg-selected);
+  color: var(--bg-selected-text);
+  border-left-color: var(--accent);
+}
+
+.env-item-selected .env-item-detail {
+  color: var(--bg-selected-text);
+  opacity: 0.75;
 }
 
 .env-item-info {
@@ -239,9 +314,9 @@ input, select, textarea {
   border: 1px solid var(--border);
 }
 
-.env-badge-dev { color: #4caf50; border-color: #4caf50; }
-.env-badge-uat { color: #cca700; border-color: #cca700; }
-.env-badge-custom { color: #64b5f6; border-color: #64b5f6; }
+.env-badge-dev { color: var(--success); border-color: var(--success); }
+.env-badge-uat { color: var(--warning); border-color: var(--warning); }
+.env-badge-custom { color: var(--accent); border-color: var(--accent); }
 
 /* ---------- Health indicator ---------- */
 .health-dot {
@@ -331,7 +406,7 @@ input, select, textarea {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #1e1e1e;
+  /* background is set inline per-instance to match the active xterm theme */
 }
 
 .terminal-host {
@@ -341,8 +416,8 @@ input, select, textarea {
 }
 
 .terminal-status-banner {
-  background: var(--warning);
-  color: #1e1e1e;
+  background: var(--error);
+  color: #ffffff;
   padding: 4px 10px;
   font-size: 12px;
 }
@@ -355,7 +430,7 @@ input, select, textarea {
   height: 24px;
   padding: 0 12px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
   font-size: 11px;
   flex-shrink: 0;
 }
@@ -378,7 +453,7 @@ input, select, textarea {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -388,11 +463,11 @@ input, select, textarea {
 .modal {
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
 }
 
 .modal-header {
@@ -439,9 +514,13 @@ input, select, textarea {
 .form-field textarea {
   background: var(--bg-app);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
   padding: 6px 8px;
+}
+
+.form-field input:disabled {
+  opacity: 0.6;
 }
 
 .form-field-row {
@@ -474,7 +553,7 @@ input, select, textarea {
   display: flex;
   flex-direction: column;
   z-index: 20;
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 .panel-header {
@@ -560,12 +639,12 @@ input, select, textarea {
 }
 
 .status-success {
-  background: rgba(76, 175, 80, 0.2);
+  background: color-mix(in srgb, var(--success) 18%, transparent);
   color: var(--success);
 }
 
 .status-failure {
-  background: rgba(241, 76, 76, 0.2);
+  background: color-mix(in srgb, var(--error) 18%, transparent);
   color: var(--error);
 }
 
@@ -596,7 +675,7 @@ input, select, textarea {
   flex: 1;
   background: var(--bg-app);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
   padding: 5px 8px;
   font-family: monospace;
@@ -606,14 +685,14 @@ input, select, textarea {
   width: 160px;
   background: var(--bg-app);
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
   padding: 5px 8px;
 }
 
 .view-toggle {
   display: flex;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -627,7 +706,7 @@ input, select, textarea {
 
 .view-toggle button.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
 }
 
 .file-manager-loading {
@@ -718,7 +797,7 @@ input, select, textarea {
 .drop-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 122, 204, 0.15);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -734,10 +813,10 @@ input, select, textarea {
   left: 50%;
   transform: translateX(-50%);
   background: var(--error);
-  color: #fff;
+  color: #ffffff;
   padding: 10px 16px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   z-index: 200;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
 }
