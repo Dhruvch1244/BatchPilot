@@ -9,6 +9,7 @@
     (openStageTracker)="openStageTrackerForSelected()"
     (openS3Transfer)="openS3TransferForSelected()"
     (activateTab)="activateTab($event)"
+    (openAdditionalTab)="openNewTabOfType($event)"
   ></app-toolbar>
 
   <div class="app-body">
@@ -17,13 +18,33 @@
     <main class="main-content">
       @if (tabs.length === 0) {
         <div class="empty-state">
+          <pre class="ascii-logo" aria-hidden="true">{{ asciiLogo }}</pre>
+
           @if (state.environments().length > 0) {
             <h2>No tabs open</h2>
-            <p>Select an environment from the sidebar, then Connect and open a terminal.</p>
+            <p>Select an environment from the sidebar, then pick a feature below to get started.</p>
           } @else {
             <h2>Welcome to BatchPilot</h2>
             <p>Create your first environment to get started.</p>
             <button class="btn btn-primary" (click)="openCreateForm()">+ New Environment</button>
+          }
+
+          <div class="feature-grid">
+            @for (f of features; track f.type) {
+              <button
+                type="button"
+                class="feature-card"
+                [disabled]="!state.selectedEnvironment()"
+                (click)="openFeature(f.type)"
+              >
+                <span class="feature-card-icon"><app-icon [name]="f.icon" size="20" /></span>
+                <span class="feature-card-title">{{ f.title }}</span>
+                <span class="feature-card-desc">{{ f.description }}</span>
+              </button>
+            }
+          </div>
+          @if (!state.selectedEnvironment()) {
+            <p class="feature-grid-hint">Select an environment from the sidebar to enable these.</p>
           }
         </div>
       } @else {

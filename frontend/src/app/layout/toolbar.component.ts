@@ -94,7 +94,7 @@ import { IconComponent } from '../shared/icon.component';
         </button>
       </div>
 
-      @if (hoverType && existingTabsOf(hoverType).length > 0 && dropdownPos) {
+      @if (hoverType && dropdownPos) {
         <div
           class="toolbar-existing-dropdown"
           [style.top.px]="dropdownPos.top"
@@ -102,9 +102,16 @@ import { IconComponent } from '../shared/icon.component';
           (mouseenter)="cancelScheduledLeave()"
           (mouseleave)="scheduleLeave()"
         >
-          <div class="toolbar-existing-header">Open {{ hoverLabel(hoverType) }} tabs</div>
-          @for (t of existingTabsOf(hoverType); track t.id) {
-            <button class="toolbar-existing-item" type="button" (click)="activateTab.emit(t.id)">{{ t.title }}</button>
+          <button class="toolbar-existing-item toolbar-existing-item-new" type="button" (click)="addTab(hoverType)">
+            <app-icon name="plus" size="12" />
+            New {{ hoverLabel(hoverType) }} tab
+          </button>
+          @if (existingTabsOf(hoverType).length > 0) {
+            <div class="toolbar-existing-divider"></div>
+            <div class="toolbar-existing-header">Open {{ hoverLabel(hoverType) }} tabs</div>
+            @for (t of existingTabsOf(hoverType); track t.id) {
+              <button class="toolbar-existing-item" type="button" (click)="activateTab.emit(t.id)">{{ t.title }}</button>
+            }
           }
         </div>
       }
@@ -121,6 +128,7 @@ export class ToolbarComponent {
   @Output() openStageTracker = new EventEmitter<void>();
   @Output() openS3Transfer = new EventEmitter<void>();
   @Output() activateTab = new EventEmitter<string>();
+  @Output() openAdditionalTab = new EventEmitter<TabType>();
 
   /** Which button group the pointer is currently over, if any - drives the "already
    * open" preview dropdown so opening a duplicate tab is a deliberate choice made by
@@ -178,6 +186,12 @@ export class ToolbarComponent {
 
   hoverLabel(type: TabType): string {
     return this.hoverLabels[type];
+  }
+
+  addTab(type: TabType): void {
+    this.openAdditionalTab.emit(type);
+    this.hoverType = null;
+    this.dropdownPos = null;
   }
 
   /** Tabs of this type for the currently selected environment - what clicking the

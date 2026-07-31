@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { AppStateService } from './core/app-state.service';
-import { Environment, Tab } from './core/models';
+import { Environment, Tab, TabType } from './core/models';
 import { ToolbarComponent } from './layout/toolbar.component';
 import { SidebarComponent } from './layout/sidebar.component';
 import { StatusBarComponent } from './layout/status-bar.component';
@@ -13,6 +13,7 @@ import { EnvironmentFormModalComponent } from './environments/environment-form-m
 import { ApplicationsPanelComponent } from './applications/applications-panel.component';
 import { StageTrackerPanelComponent } from './stage-tracker/stage-tracker-panel.component';
 import { S3TransferPanelComponent } from './s3-transfer/s3-transfer-panel.component';
+import { IconComponent, IconName } from './shared/icon.component';
 
 export type EnvironmentFormState = { mode: 'create' } | { mode: 'edit'; environment: Environment } | null;
 
@@ -21,6 +22,32 @@ function nextTabId(): string {
   tabCounter += 1;
   return `tab-${Date.now()}-${tabCounter}`;
 }
+
+interface FeatureCard {
+  type: TabType | 'quick-execute';
+  icon: IconName;
+  title: string;
+  description: string;
+}
+
+const FEATURES: FeatureCard[] = [
+  { type: 'terminal', icon: 'terminal', title: 'Terminal', description: 'Full interactive SSH shell, any number of tabs at once.' },
+  { type: 'files', icon: 'folder', title: 'File Manager', description: 'Browse, upload, download, and deep-search remote files.' },
+  { type: 'quick-execute', icon: 'play', title: 'Quick Execute', description: 'Run a one-off command without opening a terminal.' },
+  { type: 'applications', icon: 'activity', title: 'Applications', description: 'Live YARN application list, grouped and searchable.' },
+  { type: 'stage-tracker', icon: 'file-search', title: 'Stage Tracker', description: 'Follow a file through the pipeline, stage by stage.' },
+  { type: 's3-transfer', icon: 'download', title: 'S3 Transfer', description: 'Stage a file to S3 with a generated aws s3 cp command.' }
+];
+
+// figlet "slant" rendering of "BatchPilot" - colored via a CSS gradient
+// (background-clip: text) on the <pre> itself, see .ascii-logo in styles.css.
+const ASCII_LOGO = [
+  '    ____        __       __    ____  _ __      __ ',
+  '   / __ )____ _/ /______/ /_  / __ \\(_) /___  / /_',
+  '  / __  / __ `/ __/ ___/ __ \\/ /_/ / / / __ \\/ __/',
+  ' / /_/ / /_/ / /_/ /__/ / / / ____/ / / /_/ / /_  ',
+  '/_____/\\__,_/\\__/\\___/_/ /_/_/   /_/_/\\____/\\__/  '
+].join('\n');
 
 @Component({
   selector: 'app-root',
@@ -37,7 +64,8 @@ function nextTabId(): string {
     EnvironmentFormModalComponent,
     ApplicationsPanelComponent,
     StageTrackerPanelComponent,
-    S3TransferPanelComponent
+    S3TransferPanelComponent,
+    IconComponent
   ],
   templateUrl: './app.component.html'
 })
@@ -51,37 +79,90 @@ export class AppComponent implements OnInit {
    * openStageTrackerForQuery. */
   pendingStageTrackerQuery = '';
 
+  readonly asciiLogo = ASCII_LOGO;
+  readonly features = FEATURES;
+
   constructor(public state: AppStateService) {}
 
   ngOnInit(): void {
     this.state.init();
   }
 
-  openTerminalTab(environmentId: string): void {
-    const terminalTabCount = this.tabs.filter((t) => t.type === 'terminal').length;
-    if (terminalTabCount >= this.state.settings().maxTabs) {
-      window.alert(
-        `Maximum of ${this.state.settings().maxTabs} terminal tabs reached. Close a tab or raise the limit in Settings.`
-      );
+  /** Feature-card click on the empty-state screen: connects the selected environment
+   * first if it isn't already (same as the toolbar's own Terminal button), then opens
+   * or focuses that feature's tab - Quick Execute is a modal, not a tab, so it's
+   * handled separately. */
+  async openFeature(type: FeatureCard['type']): Promise<void> {
+    const envId = this.state.selectedEnvironmentId();
+    if (!envId) return;
+    if (type === 'quick-execute') {
+      this.quickExecuteOpen = true;
       return;
     }
-    this.openTab(environmentId, 'terminal', (env, n) => `${env?.name ?? 'Terminal'} #${n}`);
+    if (this.state.statuses()[envId]?.state !== 'CONNECTED') {
+      await this.state.connect(envId);
+    }
+    this.openOrFocus(type, envId);
+  }
+
+  /** One title-builder per tab type, shared between the reuse-or-focus click handlers
+   * below and openNewTabOfType (the toolbar hover preview's explicit "+" action). */
+  private readonly titleFor: Record<TabType, (env: Environment | undefined, n: number) => string> = {
+    terminal: (env, n) => `${env?.name ?? 'Terminal'} #${n}`,
+    files: (env, n) => `${env?.name ?? 'Files'} — Explorer${n > 1 ? ' #' + n : ''}`,
+    applications: (env, n) => `${env?.name ?? 'Applications'} — YARN${n > 1 ? ' #' + n : ''}`,
+    'stage-tracker': (env, n) => `${env?.name ?? 'Stage Tracker'} — Stages${n > 1 ? ' #' + n : ''}`,
+    's3-transfer': (env, n) => `${env?.name ?? 'S3 Transfer'} — Staging${n > 1 ? ' #' + n : ''}`
+  };
+
+  /** Clicking a toolbar button focuses that type's existing tab for this environment if
+   * one is already open, rather than piling up a duplicate on every click - opening a
+   * second (or third) one on purpose is what the "+" in the toolbar's hover preview is
+   * for (see openNewTabOfType). */
+  openTerminalTab(environmentId: string): void {
+    this.openOrFocus('terminal', environmentId);
   }
 
   openFilesTab(environmentId: string): void {
-    this.openTab(environmentId, 'files', (env, n) => `${env?.name ?? 'Files'} — Explorer${n > 1 ? ' #' + n : ''}`);
+    this.openOrFocus('files', environmentId);
   }
 
   openApplicationsTab(environmentId: string): void {
-    this.openTab(environmentId, 'applications', (env, n) => `${env?.name ?? 'Applications'} — YARN${n > 1 ? ' #' + n : ''}`);
+    this.openOrFocus('applications', environmentId);
   }
 
   openStageTrackerTab(environmentId: string): void {
-    this.openTab(environmentId, 'stage-tracker', (env, n) => `${env?.name ?? 'Stage Tracker'} — Stages${n > 1 ? ' #' + n : ''}`);
+    this.openOrFocus('stage-tracker', environmentId);
   }
 
   openS3TransferTab(environmentId: string): void {
-    this.openTab(environmentId, 's3-transfer', (env, n) => `${env?.name ?? 'S3 Transfer'} — Staging${n > 1 ? ' #' + n : ''}`);
+    this.openOrFocus('s3-transfer', environmentId);
+  }
+
+  private openOrFocus(type: TabType, environmentId: string): void {
+    const existing = this.tabs.find((t) => t.type === type && t.environmentId === environmentId);
+    if (existing) {
+      this.activeTabId = existing.id;
+      return;
+    }
+    this.openNewTabOfType(type, environmentId);
+  }
+
+  /** Always adds another tab of this type, even if one is already open - bound to the
+   * "+" action in the toolbar's hover preview dropdown. */
+  openNewTabOfType(type: TabType, environmentId?: string): void {
+    const envId = environmentId ?? this.state.selectedEnvironmentId();
+    if (!envId) return;
+    if (type === 'terminal') {
+      const terminalTabCount = this.tabs.filter((t) => t.type === 'terminal').length;
+      if (terminalTabCount >= this.state.settings().maxTabs) {
+        window.alert(
+          `Maximum of ${this.state.settings().maxTabs} terminal tabs reached. Close a tab or raise the limit in Settings.`
+        );
+        return;
+      }
+    }
+    this.openTab(envId, type, this.titleFor[type]);
   }
 
   /** Applications rows navigate here with a filename extracted from the YARN app name.

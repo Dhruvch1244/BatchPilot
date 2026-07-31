@@ -14,6 +14,19 @@ const SIZE_OPTIONS = [
   { label: 'Last 5 GB', mb: 5120 }
 ];
 
+// Classified in this order - a line matching more than one (rare) gets the first,
+// most-severe match. Word-boundary matched so e.g. "warehouse" doesn't read as WARN.
+const ERROR_PATTERN = /\b(ERROR|FATAL|EXCEPTION|SEVERE)\b/i;
+const WARN_PATTERN = /\bWARN(ING)?\b/i;
+const DEBUG_PATTERN = /\b(DEBUG|TRACE)\b/i;
+
+function classifyLogLine(line: string): string {
+  if (ERROR_PATTERN.test(line)) return 'log-line-error';
+  if (WARN_PATTERN.test(line)) return 'log-line-warn';
+  if (DEBUG_PATTERN.test(line)) return 'log-line-debug';
+  return '';
+}
+
 @Component({
   selector: 'app-logs-modal',
   standalone: true,
@@ -50,7 +63,15 @@ const SIZE_OPTIONS = [
           <div class="form-error">{{ error }}</div>
         }
 
-        <pre class="logs-preview">{{ preview || (loadingPreview ? 'Loading…' : 'No preview yet — click Refresh.') }}</pre>
+        <div class="logs-preview">
+          @if (previewLines.length > 0) {
+            @for (line of previewLines; track $index) {
+              <div class="log-line" [class]="lineClass(line)">{{ line }}</div>
+            }
+          } @else {
+            <div class="log-line log-line-dim">{{ loadingPreview ? 'Loading…' : 'No preview yet — click Refresh.' }}</div>
+          }
+        </div>
 
         <div class="logs-filter-row">
           <label class="form-field logs-size-field">
@@ -86,10 +107,17 @@ const SIZE_OPTIONS = [
       overflow: auto;
       font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
       font-size: 11.5px;
+    }
+    .log-line {
       white-space: pre-wrap;
       word-break: break-word;
       color: var(--text);
+      line-height: 1.5;
     }
+    .log-line-error { color: var(--error); font-weight: 500; }
+    .log-line-warn { color: var(--warning); }
+    .log-line-debug { color: var(--text-dim); }
+    .log-line-dim { color: var(--text-dim); }
     .logs-size-field { flex: 1; }
     .logs-download-btn { align-self: flex-end; text-decoration: none; }
   `]
@@ -105,9 +133,11 @@ export class LogsModalComponent implements OnInit {
   grep = '';
   caseInsensitive = true;
   downloadSizeMb = 1024;
-  preview = '';
+  previewLines: string[] = [];
   loadingPreview = false;
   error: string | null = null;
+
+  readonly lineClass = classifyLogLine;
 
   constructor(private api: ApiService) {}
 
@@ -135,7 +165,7 @@ export class LogsModalComponent implements OnInit {
           .filter((line) => pattern.test(line))
           .join('\n');
       }
-      this.preview = text || '(no matching lines in the last 500)';
+      this.previewLines = (text || '(no matching lines in the last 500)').split('\n');
     } catch (e) {
       this.error = e instanceof Error ? e.message : 'Failed to load logs';
     } finally {
