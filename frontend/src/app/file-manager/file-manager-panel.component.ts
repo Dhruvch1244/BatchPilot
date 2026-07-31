@@ -119,6 +119,14 @@ function formatSize(bytes: number): string {
                           <span class="file-location-hint">{{ locationOf(entry) }}</span>
                         }
                       </span>
+                      <button
+                        class="icon-btn file-copy-path-btn"
+                        type="button"
+                        [title]="copiedPath === entry.path ? 'Copied!' : 'Copy internal path'"
+                        (click)="copyPath(entry, $event)"
+                      >
+                        <app-icon [name]="copiedPath === entry.path ? 'check-circle' : 'duplicate'" size="13" />
+                      </button>
                     </td>
                     <td>{{ entry.directory ? '—' : formatSize(entry.size) }}</td>
                     <td>{{ entry.lastModified ? (entry.lastModified | date: 'medium') : '—' }}</td>
@@ -136,6 +144,14 @@ function formatSize(bytes: number): string {
                   (click)="isSearching() ? goToLocation(entry) : toggleSelect(entry.path)"
                   (dblclick)="!isSearching() && navigateInto(entry)"
                 >
+                  <button
+                    class="icon-btn file-copy-path-btn file-grid-copy-path-btn"
+                    type="button"
+                    [title]="copiedPath === entry.path ? 'Copied!' : 'Copy internal path'"
+                    (click)="copyPath(entry, $event)"
+                  >
+                    <app-icon [name]="copiedPath === entry.path ? 'check-circle' : 'duplicate'" size="13" />
+                  </button>
                   <div class="file-grid-icon"><app-icon [name]="entry.directory ? 'folder' : 'file'" size="28" /></div>
                   <div class="file-grid-name">{{ entry.name }}</div>
                   @if (isSearching()) {
@@ -173,6 +189,10 @@ export class FileManagerPanelComponent implements OnInit {
   selected = new Set<string>();
   dragOver = false;
   uploadProgress: { loaded: number; total: number } | null = null;
+  /** Which entry's path was most recently copied, so its button can briefly show a
+   * checkmark instead of the copy icon as feedback. */
+  copiedPath: string | null = null;
+  private copiedPathTimer?: ReturnType<typeof setTimeout>;
 
   readonly formatSize = formatSize;
 
@@ -180,6 +200,20 @@ export class FileManagerPanelComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+  }
+
+  /** Copies the entry's path on the remote environment (not a local filesystem path) -
+   * useful for pasting into Quick Execute, another tool, or just noting where a file
+   * actually lives, without retyping it. Works from anywhere in the row, whether
+   * currently browsing normally or mid-search. */
+  copyPath(entry: FileEntry, event?: Event): void {
+    event?.stopPropagation();
+    navigator.clipboard.writeText(entry.path);
+    this.copiedPath = entry.path;
+    clearTimeout(this.copiedPathTimer);
+    this.copiedPathTimer = setTimeout(() => {
+      if (this.copiedPath === entry.path) this.copiedPath = null;
+    }, 1500);
   }
 
   async load(): Promise<void> {
