@@ -1348,6 +1348,28 @@ textarea:focus-visible {
   opacity: 1;
 }
 
+.s3-bucket-field {
+  flex: 1;
+  max-width: 220px;
+}
+
+.s3-bucket-field .file-manager-path {
+  padding-left: 28px;
+}
+
+.s3-load-more {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  justify-content: center;
+}
+
+.s3-load-more-count {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
 .file-manager-search-hint {
   display: flex;
   align-items: center;

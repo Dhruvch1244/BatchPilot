@@ -88,6 +88,17 @@ import { IconComponent } from '../shared/icon.component';
           </button>
         </div>
 
+        <div class="toolbar-btn-group" (mouseenter)="onGroupHover('s3-explorer', $event)" (mouseleave)="scheduleLeave()">
+          <button
+            class="btn"
+            [disabled]="!state.selectedEnvironment() || !connected()"
+            (click)="openS3Explorer.emit()"
+          >
+            <app-icon name="cloud" size="14" />
+            S3 Explorer
+          </button>
+        </div>
+
         <div class="toolbar-sep"></div>
         <button class="btn icon-btn" title="Settings" (click)="openSettings.emit()">
           <app-icon name="settings" size="16" />
@@ -127,6 +138,7 @@ export class ToolbarComponent {
   @Output() openApplications = new EventEmitter<void>();
   @Output() openStageTracker = new EventEmitter<void>();
   @Output() openS3Transfer = new EventEmitter<void>();
+  @Output() openS3Explorer = new EventEmitter<void>();
   @Output() activateTab = new EventEmitter<string>();
   @Output() openAdditionalTab = new EventEmitter<TabType>();
 
@@ -157,7 +169,8 @@ export class ToolbarComponent {
     files: 'Files',
     applications: 'Applications',
     'stage-tracker': 'Stage Tracker',
-    's3-transfer': 'S3 Transfer'
+    's3-transfer': 'S3 Transfer',
+    's3-explorer': 'S3 Explorer'
   };
 
   constructor(public state: AppStateService) {}

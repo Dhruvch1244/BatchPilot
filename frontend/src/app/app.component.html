@@ -8,6 +8,7 @@
     (openApplications)="openApplicationsForSelected()"
     (openStageTracker)="openStageTrackerForSelected()"
     (openS3Transfer)="openS3TransferForSelected()"
+    (openS3Explorer)="openS3ExplorerForSelected()"
     (activateTab)="activateTab($event)"
     (openAdditionalTab)="openNewTabOfType($event)"
   ></app-toolbar>
@@ -76,8 +77,13 @@
                   (queryChange)="onStageTrackerQueryChange(tab.id, $event)"
                   (openInNewTab)="openStageTrackerForQuery($event.environmentId, $event.filename)"
                 ></app-stage-tracker-panel>
-              } @else {
+              } @else if (tab.type === 's3-transfer') {
                 <app-s3-transfer-panel [environmentId]="tab.environmentId"></app-s3-transfer-panel>
+              } @else {
+                <app-s3-explorer-panel
+                  [environmentId]="tab.environmentId"
+                  (locationChange)="onS3ExplorerLocationChange(tab.id, $event)"
+                ></app-s3-explorer-panel>
               }
             </div>
           }

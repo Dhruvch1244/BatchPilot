@@ -35,6 +35,7 @@ batchpilot/
 │       ├── applications/       # YARN running-applications view (list/sort/kill)
 │       ├── stage-tracker/      # File pipeline stage tracker (search/kill/history)
 │       ├── s3-transfer/        # S3 vendor-staging command builder/runner
+│       ├── s3-explorer/        # S3 bucket browser (paginated list/upload/download)
 │       ├── settings/           # Settings modal
 │       └── shared/             # Reusable modal, icon, and logs-modal components
 ├── packaging/                  # Release launcher scripts (copied verbatim by release.sh)
@@ -373,6 +374,43 @@ character allowlist server-side (`S3TransferService`); the source path is
 shell-quoted instead (it has to accept arbitrary uploaded file names) — both
 for the same reason YARN application IDs are validated: this runs over a
 real remote shell, so anything not handled is a command-injection vector.
+
+## S3 Explorer
+
+The **S3 Explorer** toolbar action is a general-purpose file browser for an
+S3 bucket — folders, objects, upload, download — separate from S3
+Transfer's narrow "stage one file to a fixed `daaf-staging` path" flow.
+Like every other S3/YARN feature in this app, it works by running `aws` CLI
+commands over the environment's existing SSH session (`S3ExplorerService`)
+rather than the backend talking to S3 directly: the EMR/edge node already
+has working AWS credentials and, usually, a much better network path to S3
+than wherever BatchPilot's backend happens to be running, so it's both
+simpler and meaningfully faster to let that box do the work.
+
+- **Listing** — `aws s3api list-objects-v2 --delimiter /` groups keys into
+  "folders" (S3 CommonPrefixes) and "files" the same way the AWS Console
+  does, rather than dumping a flat key list. Double-click a folder to
+  navigate into it, **Up** to go back. A bucket can hold hundreds of
+  thousands of keys, so listing is properly paginated server-side via
+  `--max-items`/`--starting-token` (100 keys per page) — a **Load more**
+  button appends the next page rather than the UI ever trying to hold or
+  render an entire bucket at once.
+- **Bucket** — defaults to the environment's `$S3_BUCKET` (left unexpanded,
+  resolved by the *remote* shell, same rule S3 Transfer follows); type an
+  explicit bucket name to browse anything else.
+- **Download** — select one or more files and click **Download**. Each
+  selected object is fetched with `aws s3 cp s3://bucket/key <remote temp
+  file>`, then streamed back to the browser over the same SFTP session and
+  the remote temp file cleaned up — no local AWS credentials or SDK, and
+  nothing buffered in the backend's memory.
+- **Upload** — drag-and-drop or the **Upload** button stage the local
+  file(s) to a remote temp path over SFTP, then `aws s3 cp` moves it to
+  `s3://bucket/<current prefix>/<file name>` and the temp file is removed.
+- Every prefix, key, and continuation token is shell-quoted before it's
+  interpolated into a remote command (S3 keys can contain almost anything
+  printable, including spaces and unicode, so a character allowlist isn't
+  an option here) — same command-injection discipline as every other
+  SSH-exec feature in this app.
 
 ## Security notes
 

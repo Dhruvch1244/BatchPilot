@@ -7,7 +7,8 @@ const TAB_ICONS: Record<TabType, IconName> = {
   files: 'folder',
   applications: 'activity',
   'stage-tracker': 'file-search',
-  's3-transfer': 'download'
+  's3-transfer': 'download',
+  's3-explorer': 'cloud'
 };
 
 @Component({

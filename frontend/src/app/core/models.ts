@@ -56,6 +56,23 @@ export interface FileEntry {
   permissions: string;
 }
 
+// ---------- S3 Explorer ----------
+export interface S3Entry {
+  key: string;
+  name: string;
+  directory: boolean;
+  size: number | null;
+  lastModified: string | null;
+}
+
+export interface S3ListResult {
+  bucket: string | null;
+  prefix: string;
+  entries: S3Entry[];
+  /** Present when there's another page to load; echo back as continuationToken. */
+  nextToken: string | null;
+}
+
 export interface QuickExecuteResult {
   environmentId: string;
   command: string;
@@ -67,7 +84,7 @@ export interface QuickExecuteResult {
   executedAt: string;
 }
 
-export type TabType = 'terminal' | 'files' | 'applications' | 'stage-tracker' | 's3-transfer';
+export type TabType = 'terminal' | 'files' | 'applications' | 'stage-tracker' | 's3-transfer' | 's3-explorer';
 
 export interface Tab {
   id: string;
