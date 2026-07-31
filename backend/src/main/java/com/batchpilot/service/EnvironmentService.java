@@ -56,6 +56,7 @@ public class EnvironmentService {
         copy.setServerIp(source.getServerIp());
         copy.setSshPort(source.getSshPort());
         copy.setPpkPath(source.getPpkPath());
+        copy.setYarnRmUrl(source.getYarnRmUrl());
         copy.setUsername(properties.getDefaultUsername());
         copy.setCreatedAt(Instant.now());
         copy.setUpdatedAt(Instant.now());
@@ -74,6 +75,7 @@ public class EnvironmentService {
         env.setServerIp(request.getServerIp());
         env.setSshPort(request.getSshPort());
         env.setPpkPath(request.getPpkPath());
+        env.setYarnRmUrl(request.getYarnRmUrl());
         // Username is never taken from the client; always the configured default.
         env.setUsername(properties.getDefaultUsername());
     }

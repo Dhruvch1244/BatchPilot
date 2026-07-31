@@ -15,8 +15,9 @@ Double-click BatchPilot.bat.
 
 A window will open - that window IS the BatchPilot server, so keep it open
 while you use the app. Your browser will open automatically after a few
-seconds at http://localhost:8743. To stop BatchPilot, just close that
-window.
+seconds, normally at http://localhost:8743 (BatchPilot automatically uses a
+different port instead if that one's already taken on your machine - see
+"Changing the port" below). To stop BatchPilot, just close that window.
 
 If your company blocks console windows from popping up and you'd rather run
 it silently instead, use BatchPilot-Silent.vbs (double-click it) - it starts
@@ -32,8 +33,9 @@ Open a terminal in this folder and run:
 
     ./run.sh
 
-Your browser will open automatically at http://localhost:8743. Press
-Ctrl+C in that terminal to stop BatchPilot.
+Your browser will open automatically, normally at http://localhost:8743
+(a different port instead if that one's already taken - see "Changing the
+port" below). Press Ctrl+C in that terminal to stop BatchPilot.
 
 Where your data is stored
 --------------------------
@@ -44,7 +46,14 @@ environments you explicitly connect to.
 
 Changing the port
 ------------------
-BatchPilot listens on port 8743 by default. If that's already in use on
-your machine, edit BatchPilot.bat / run.sh and add
---server.port=<some other port> to the "java -jar" line, then open that
-port instead in your browser.
+BatchPilot listens on port 8743 by default, but if that's already taken by
+something else on your machine, it automatically finds and uses the next
+free port instead - it won't just fail to start. The launcher scripts
+already know to look for the actual port and open the right one in your
+browser; if the browser doesn't open automatically for any reason, check
+the ".batchpilot/port.txt" file in your home directory for the port
+actually in use, or look near the top of the server window's output for a
+line like "Tomcat started on port <port>".
+
+If you'd rather force a specific port yourself, edit BatchPilot.bat /
+run.sh and add --server.port=<some other port> to the "java -jar" line.

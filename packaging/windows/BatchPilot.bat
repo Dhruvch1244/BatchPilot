@@ -4,7 +4,6 @@ setlocal
 
 set "APP_DIR=%~dp0"
 set "APP_JAR=%APP_DIR%BatchPilot.jar"
-set "APP_URL=http://localhost:8743"
 
 echo ============================================
 echo   BatchPilot
@@ -24,7 +23,9 @@ if errorlevel 1 (
 echo This window IS the BatchPilot server - keep it open while you use
 echo the app. Closing this window stops BatchPilot.
 echo.
-echo Opening %APP_URL% in your browser in a few seconds...
+echo BatchPilot normally runs on port 8743, but will automatically use a
+echo different port if that one's already taken on this computer.
+echo Opening it in your browser in a few seconds...
 echo.
 
 start "" /min "%APP_DIR%_open-browser.bat"

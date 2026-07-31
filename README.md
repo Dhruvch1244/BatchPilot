@@ -69,9 +69,13 @@ java -jar backend/target/batchpilot-backend.jar
 ```
 
 The backend starts on **http://localhost:8743** (a deliberately uncommon port —
-see "Configuration" below if you need to change it). On first run it creates a data
-directory at `~/.batchpilot` (override with `--batchpilot.data-dir=/custom/path`)
-containing:
+see "Configuration" below if you need to change it). If 8743 is already taken by
+something else on the machine, it automatically tries the next ports up (8744, 8745,
+...) instead of failing to start, and writes whichever one it actually bound to
+`~/.batchpilot/port.txt` — the packaged release's launcher scripts (see "Building a
+shareable release" below) read that file so they still open the right URL. On first
+run it also creates a data directory at `~/.batchpilot` (override with
+`--batchpilot.data-dir=/custom/path`) containing:
 
 - `environments.json` — persisted environments (seeded with DEV and UAT presets)
 - `settings.json` — persisted application settings
@@ -221,7 +225,7 @@ Backend settings live in `backend/src/main/resources/application.yml`:
 
 | Property | Default | Description |
 |---|---|---|
-| `server.port` | `8743` | Backend HTTP port — deliberately not a common default (8080/8000/3000/...) to avoid colliding with other local apps |
+| `server.port` | `8743` | Backend HTTP port — deliberately not a common default (8080/8000/3000/...) to avoid colliding with other local apps. If it's already in use, `BatchPilotApplication` auto-picks the next free port instead of failing to start (see `resolvePort`/`writePortFile`) — this value is only what it *tries first* |
 | `batchpilot.data-dir` | `${user.home}/.batchpilot` | Local JSON persistence directory |
 | `batchpilot.default-username` | `hadoop` | Fixed SSH username for every environment |
 | `spring.servlet.multipart.max-file-size` | `2GB` | Max single file upload size |
@@ -242,9 +246,23 @@ properties under `.theme-light` / `.theme-dark` in
 ## YARN applications & the file stage tracker
 
 Two toolbar actions expose Hadoop YARN (the resource manager, *not* the JS
-package manager) over the environment's existing SSH connection — there is no
-separate connection mechanism, every call runs a `yarn` CLI command on the
-same session Terminal/Quick Execute/File Manager already share:
+package manager). By default every call runs a `yarn` CLI command over the
+environment's existing SSH connection — there is no separate connection
+mechanism, it's the same session Terminal/Quick Execute/File Manager already
+share — but `YarnService` tries the ResourceManager's own REST API first
+(`GET /ws/v1/cluster/apps`, `GET /ws/v1/cluster/nodes`, `PUT
+/ws/v1/cluster/apps/{id}/state` to kill), which is the same JSON the RM's own
+web UI (`http://<rm-host>:8088/cluster/apps`) loads from. No SSH round-trip,
+no CLI cold-start, no text parsing — it's meaningfully faster when reachable.
+The RM base URL is auto-derived from an environment's Server IP using AWS's
+own internal-DNS convention (`ip-a-b-c-d.ec2.internal:8088`), the common case
+when the RM lives on the same EC2 host the SSH session connects to; an
+"Advanced" field in the environment form lets you override it explicitly
+(different host, port, or scheme) when that doesn't hold. Either way it's
+automatic and transparent: if the RM REST API isn't reachable, that call (and
+every call for the next 2 minutes, so an unreachable RM doesn't add its
+timeout to every single poll) falls straight back to the SSH `yarn` CLI path
+with no user-visible difference beyond speed.
 
 - **Applications** — lists every YARN application (`yarn application -list
   -appStates ALL`), grouped into **Running** (always shown, never collapsed),

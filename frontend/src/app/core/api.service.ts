@@ -54,6 +54,16 @@ export class ApiService {
     return this.http.delete<void>(`/api/environments/${id}`);
   }
 
+  /** Uploads a PPK file picked/dropped in the environment form and returns the local
+   * filesystem path it was saved to - browsers never expose a picked file's real
+   * absolute path, so the file has to be copied into the app's own data directory
+   * before ppkPath can point at it. */
+  uploadKeyFile(file: File): Observable<{ path: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<{ path: string }>('/api/keys/upload', form);
+  }
+
   // ---------- Connection ----------
   connect(id: string): Observable<ConnectionStatus> {
     return this.http.post<ConnectionStatus>(`/api/environments/${id}/connection/connect`, {});

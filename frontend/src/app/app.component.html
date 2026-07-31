@@ -74,6 +74,7 @@
                   [environmentId]="tab.environmentId"
                   [initialQuery]="pendingStageTrackerQuery"
                   (queryChange)="onStageTrackerQueryChange(tab.id, $event)"
+                  (openInNewTab)="openStageTrackerForQuery($event.environmentId, $event.filename)"
                 ></app-stage-tracker-panel>
               } @else {
                 <app-s3-transfer-panel [environmentId]="tab.environmentId"></app-s3-transfer-panel>

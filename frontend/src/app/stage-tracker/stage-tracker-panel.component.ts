@@ -133,9 +133,8 @@ function formatDuration(ms: number): string {
           <div class="stage-empty" style="padding: 12px 4px;">No searches yet.</div>
         }
         @for (h of history; track h.id) {
-          <button
+          <div
             class="stage-history-item"
-            type="button"
             [class.stage-history-item-active]="h.filename === query"
             [title]="h.environmentName"
             (click)="rerun(h)"
@@ -143,7 +142,15 @@ function formatDuration(ms: number): string {
             <app-icon name="file-search" size="13" />
             <span class="stage-history-name">{{ h.filename }}</span>
             <span class="stage-history-count">{{ h.matchCount }}</span>
-          </button>
+            <button
+              class="icon-btn stage-history-newtab-btn"
+              type="button"
+              title="Open in a new tab"
+              (click)="openInNewTab.emit(h); $event.stopPropagation()"
+            >
+              <app-icon name="external-link" size="12" />
+            </button>
+          </div>
         }
       </aside>
 
@@ -200,6 +207,9 @@ export class StageTrackerPanelComponent implements OnInit {
   /** Lets the owning tab keep its title in sync with whatever this instance last
    * searched - useful now that more than one Stage Tracker tab can be open at once. */
   @Output() queryChange = new EventEmitter<string>();
+  /** Emitted when a "Recent searches" entry's hover-revealed new-tab button is
+   * clicked, instead of rerunning that search in this tab. */
+  @Output() openInNewTab = new EventEmitter<StageSearchHistoryEntry>();
 
   query = '';
   result: StageSearchResult | null = null;

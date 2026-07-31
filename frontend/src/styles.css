@@ -1322,6 +1322,32 @@ textarea:focus-visible {
   flex-shrink: 0;
 }
 
+.file-copy-path-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.file-table tr:hover .file-copy-path-btn,
+.file-copy-path-btn:focus-visible {
+  opacity: 1;
+}
+
+.file-grid-copy-path-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  background: var(--bg-panel);
+  transition: opacity 0.12s ease;
+}
+
+.file-grid-item:hover .file-grid-copy-path-btn,
+.file-grid-copy-path-btn:focus-visible {
+  opacity: 1;
+}
+
 .file-manager-search-hint {
   display: flex;
   align-items: center;
@@ -1357,6 +1383,7 @@ textarea:focus-visible {
 }
 
 .file-grid-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1604,6 +1631,17 @@ textarea:focus-visible {
   background: var(--bg-panel-alt);
   border-radius: 999px;
   padding: 1px 6px;
+}
+
+.stage-history-newtab-btn {
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity 0.12s ease;
+}
+
+.stage-history-item:hover .stage-history-newtab-btn,
+.stage-history-newtab-btn:focus-visible {
+  opacity: 1;
 }
 
 .stage-tracker-main {

@@ -29,7 +29,8 @@ export type IconName =
   | 'plug'
   | 'plug-off'
   | 'settings'
-  | 'file-search';
+  | 'file-search'
+  | 'external-link';
 
 /**
  * Minimal inline SVG icon set (24x24 viewBox, stroke-based, Lucide-style)
@@ -178,6 +179,11 @@ export type IconName =
           <path d="M9 8V4"></path>
           <path d="M15 15.5V8h-7v3a6 6 0 0 0 3.5 5.46"></path>
           <line x1="3" y1="3" x2="21" y2="21"></line>
+        }
+        @case ('external-link') {
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <line x1="10" y1="14" x2="21" y2="3"></line>
         }
         @case ('settings') {
           <circle cx="12" cy="12" r="3"></circle>
