@@ -32,4 +32,17 @@ pidStream.WriteLine proc.ProcessID
 pidStream.Close
 
 WScript.Sleep 6000
-shell.Run "http://localhost:8743"
+
+' The server auto-picks a different port if 8743 is already taken by
+' something else on this machine and writes the one it actually used to
+' port.txt - read that if present so the right URL opens either way.
+appPort = "8743"
+portFile = shell.ExpandEnvironmentStrings("%USERPROFILE%") & "\.batchpilot\port.txt"
+If fso.FileExists(portFile) Then
+  Set portStream = fso.OpenTextFile(portFile, 1)
+  readPort = Trim(portStream.ReadLine())
+  portStream.Close
+  If readPort <> "" Then appPort = readPort
+End If
+
+shell.Run "http://localhost:" & appPort

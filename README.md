@@ -69,9 +69,13 @@ java -jar backend/target/batchpilot-backend.jar
 ```
 
 The backend starts on **http://localhost:8743** (a deliberately uncommon port —
-see "Configuration" below if you need to change it). On first run it creates a data
-directory at `~/.batchpilot` (override with `--batchpilot.data-dir=/custom/path`)
-containing:
+see "Configuration" below if you need to change it). If 8743 is already taken by
+something else on the machine, it automatically tries the next ports up (8744, 8745,
+...) instead of failing to start, and writes whichever one it actually bound to
+`~/.batchpilot/port.txt` — the packaged release's launcher scripts (see "Building a
+shareable release" below) read that file so they still open the right URL. On first
+run it also creates a data directory at `~/.batchpilot` (override with
+`--batchpilot.data-dir=/custom/path`) containing:
 
 - `environments.json` — persisted environments (seeded with DEV and UAT presets)
 - `settings.json` — persisted application settings
@@ -221,7 +225,7 @@ Backend settings live in `backend/src/main/resources/application.yml`:
 
 | Property | Default | Description |
 |---|---|---|
-| `server.port` | `8743` | Backend HTTP port — deliberately not a common default (8080/8000/3000/...) to avoid colliding with other local apps |
+| `server.port` | `8743` | Backend HTTP port — deliberately not a common default (8080/8000/3000/...) to avoid colliding with other local apps. If it's already in use, `BatchPilotApplication` auto-picks the next free port instead of failing to start (see `resolvePort`/`writePortFile`) — this value is only what it *tries first* |
 | `batchpilot.data-dir` | `${user.home}/.batchpilot` | Local JSON persistence directory |
 | `batchpilot.default-username` | `hadoop` | Fixed SSH username for every environment |
 | `spring.servlet.multipart.max-file-size` | `2GB` | Max single file upload size |
