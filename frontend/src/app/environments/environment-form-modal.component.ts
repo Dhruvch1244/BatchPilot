@@ -1,13 +1,16 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { ModalComponent } from '../shared/modal.component';
+import { IconComponent } from '../shared/icon.component';
+import { ApiService } from '../core/api.service';
 import { AppStateService } from '../core/app-state.service';
 import { Environment, EnvironmentRequest, EnvironmentType } from '../core/models';
 
 @Component({
   selector: 'app-environment-form-modal',
   standalone: true,
-  imports: [FormsModule, ModalComponent],
+  imports: [FormsModule, IconComponent, ModalComponent],
   template: `
     <app-modal [title]="editing ? 'Edit Environment' : 'New Environment'" (close)="close.emit()">
       <form class="form" (ngSubmit)="submit()">
@@ -35,10 +38,34 @@ import { Environment, EnvironmentRequest, EnvironmentType } from '../core/models
           <input name="sshPort" type="number" min="1" max="65535" [(ngModel)]="sshPort" required />
         </label>
 
-        <label class="form-field">
+        <div class="form-field">
           <span>PPK Path</span>
           <input name="ppkPath" [(ngModel)]="ppkPath" placeholder="/path/to/key.ppk" required />
-        </label>
+
+          <div
+            class="key-dropzone"
+            [class.key-dropzone-active]="dragOver"
+            (click)="fileInput.click()"
+            (dragover)="onDragOver($event)"
+            (dragleave)="dragOver = false"
+            (drop)="onDrop($event)"
+          >
+            <input #fileInput type="file" accept=".ppk" hidden (change)="onFileSelected($event)" />
+            @if (uploading) {
+              <app-icon name="refresh" size="15" [spin]="true" />
+              <span>Uploading {{ pendingFileName }}…</span>
+            } @else if (uploadedFileName) {
+              <app-icon name="check-circle" size="15" />
+              <span>Using {{ uploadedFileName }} — drop another .ppk to replace it</span>
+            } @else {
+              <app-icon name="folder" size="15" />
+              <span>Drop a .ppk file here, or click to browse</span>
+            }
+          </div>
+          @if (uploadError) {
+            <div class="form-error">{{ uploadError }}</div>
+          }
+        </div>
 
         <label class="form-field">
           <span>Username</span>
@@ -51,18 +78,42 @@ import { Environment, EnvironmentRequest, EnvironmentType } from '../core/models
 
         <div class="form-actions">
           <button type="button" class="btn" (click)="close.emit()">Cancel</button>
-          <button type="submit" class="btn btn-primary" [disabled]="submitting">
+          <button type="submit" class="btn btn-primary" [disabled]="submitting || uploading">
             {{ editing ? 'Save' : 'Create' }}
           </button>
         </div>
       </form>
     </app-modal>
-  `
+  `,
+  styles: [`
+    .key-dropzone {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 10px 12px;
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-md);
+      background: var(--bg-panel-alt);
+      color: var(--text-dim);
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+    }
+    .key-dropzone:hover { border-color: var(--accent); color: var(--text); }
+    .key-dropzone-active {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel-alt));
+      color: var(--text);
+    }
+  `]
 })
 export class EnvironmentFormModalComponent implements OnInit {
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() environment?: Environment;
   @Output() close = new EventEmitter<void>();
+
+  @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
 
   name = '';
   type: EnvironmentType = 'CUSTOM';
@@ -72,7 +123,16 @@ export class EnvironmentFormModalComponent implements OnInit {
   submitting = false;
   formError: string | null = null;
 
-  constructor(private state: AppStateService) {}
+  dragOver = false;
+  uploading = false;
+  uploadError: string | null = null;
+  pendingFileName = '';
+  /** Set once a key has actually been uploaded through the dropper this session (not
+   * just typed as a path), so the hint reflects "you picked a file" rather than
+   * restating whatever ppkPath happens to already contain when editing. */
+  uploadedFileName = '';
+
+  constructor(private state: AppStateService, private api: ApiService) {}
 
   get editing(): boolean {
     return this.mode === 'edit';
@@ -85,6 +145,40 @@ export class EnvironmentFormModalComponent implements OnInit {
       this.serverIp = this.environment.serverIp;
       this.sshPort = this.environment.sshPort;
       this.ppkPath = this.environment.ppkPath;
+    }
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.dragOver = true;
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.dragOver = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (file) this.uploadKey(file);
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) this.uploadKey(file);
+    input.value = '';
+  }
+
+  private async uploadKey(file: File): Promise<void> {
+    this.uploading = true;
+    this.uploadError = null;
+    this.pendingFileName = file.name;
+    try {
+      const result = await firstValueFrom(this.api.uploadKeyFile(file));
+      this.ppkPath = result.path;
+      this.uploadedFileName = file.name;
+    } catch (e) {
+      this.uploadError = e instanceof Error ? e.message : 'Failed to upload key file';
+    } finally {
+      this.uploading = false;
     }
   }
 
