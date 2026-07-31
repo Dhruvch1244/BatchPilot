@@ -27,4 +27,7 @@ public class EnvironmentRequest {
 
     @NotBlank
     private String ppkPath;
+
+    /** Optional. See {@link com.batchpilot.model.Environment#getYarnRmUrl()}. */
+    private String yarnRmUrl;
 }

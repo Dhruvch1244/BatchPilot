@@ -246,9 +246,23 @@ properties under `.theme-light` / `.theme-dark` in
 ## YARN applications & the file stage tracker
 
 Two toolbar actions expose Hadoop YARN (the resource manager, *not* the JS
-package manager) over the environment's existing SSH connection — there is no
-separate connection mechanism, every call runs a `yarn` CLI command on the
-same session Terminal/Quick Execute/File Manager already share:
+package manager). By default every call runs a `yarn` CLI command over the
+environment's existing SSH connection — there is no separate connection
+mechanism, it's the same session Terminal/Quick Execute/File Manager already
+share — but `YarnService` tries the ResourceManager's own REST API first
+(`GET /ws/v1/cluster/apps`, `GET /ws/v1/cluster/nodes`, `PUT
+/ws/v1/cluster/apps/{id}/state` to kill), which is the same JSON the RM's own
+web UI (`http://<rm-host>:8088/cluster/apps`) loads from. No SSH round-trip,
+no CLI cold-start, no text parsing — it's meaningfully faster when reachable.
+The RM base URL is auto-derived from an environment's Server IP using AWS's
+own internal-DNS convention (`ip-a-b-c-d.ec2.internal:8088`), the common case
+when the RM lives on the same EC2 host the SSH session connects to; an
+"Advanced" field in the environment form lets you override it explicitly
+(different host, port, or scheme) when that doesn't hold. Either way it's
+automatic and transparent: if the RM REST API isn't reachable, that call (and
+every call for the next 2 minutes, so an unreachable RM doesn't add its
+timeout to every single poll) falls straight back to the SSH `yarn` CLI path
+with no user-visible difference beyond speed.
 
 - **Applications** — lists every YARN application (`yarn application -list
   -appStates ALL`), grouped into **Running** (always shown, never collapsed),

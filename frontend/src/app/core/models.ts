@@ -8,6 +8,10 @@ export interface Environment {
   sshPort: number;
   ppkPath: string;
   username: string;
+  /** Optional override for the YARN ResourceManager's base URL, used to fetch applications
+   * directly via its REST API instead of the slower SSH `yarn` CLI path. Blank means
+   * auto-derive from serverIp (ip-a-b-c-d.ec2.internal:8088). */
+  yarnRmUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -18,6 +22,7 @@ export interface EnvironmentRequest {
   serverIp: string;
   sshPort: number;
   ppkPath: string;
+  yarnRmUrl?: string;
 }
 
 export type ConnectionState = 'DISCONNECTED' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'ERROR';

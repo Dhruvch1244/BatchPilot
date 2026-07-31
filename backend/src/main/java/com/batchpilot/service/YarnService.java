@@ -2,6 +2,7 @@ package com.batchpilot.service;
 
 import com.batchpilot.dto.YarnActionResponse;
 import com.batchpilot.exception.SshOperationException;
+import com.batchpilot.model.Environment;
 import com.batchpilot.model.YarnApplication;
 import com.batchpilot.model.YarnNode;
 import com.batchpilot.ssh.SshConnectionManager;
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -22,7 +25,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 /**
@@ -39,6 +45,14 @@ public class YarnService {
     private static final int LOGS_TIMEOUT_SECONDS = 60;
     private static final int DEFAULT_LOG_LINES = 500;
 
+    /** Standard YARN ResourceManager webapp port, used when an environment doesn't set an
+     * explicit {@code yarnRmUrl} override. */
+    private static final int DEFAULT_RM_PORT = 8088;
+    /** How long to stop retrying the RM REST API for an environment after it fails once, so an
+     * unreachable RM doesn't add a multi-second timeout to every single poll - just the first
+     * one in each window. */
+    private static final Duration REST_COOLDOWN = Duration.ofMinutes(2);
+
     /** YARN's own application ID format (application_<clusterTimestamp>_<sequence>). Validated
      * before any ID is interpolated into a shell command, since exec channels run through a
      * remote shell and are otherwise open to command injection. */
@@ -48,27 +62,48 @@ public class YarnService {
     private static final long MAX_LOG_DOWNLOAD_BYTES = 5L * 1024 * 1024 * 1024; // 5 GB safety cap
 
     private final SshConnectionManager connectionManager;
+    private final EnvironmentService environmentService;
+    private final YarnRestClient restClient;
 
-    public YarnService(SshConnectionManager connectionManager) {
+    /** Per-environment cooldown: while now() is before the stored instant, REST is skipped
+     * entirely and calls go straight to SSH. Cleared as soon as a REST call succeeds again. */
+    private final Map<String, Instant> restUnavailableUntil = new ConcurrentHashMap<>();
+
+    public YarnService(SshConnectionManager connectionManager, EnvironmentService environmentService,
+                        YarnRestClient restClient) {
         this.connectionManager = connectionManager;
+        this.environmentService = environmentService;
+        this.restClient = restClient;
     }
 
     public List<YarnApplication> listApplications(String environmentId) {
-        String output = runCommand(environmentId, "yarn application -list -appStates ALL", COMMAND_TIMEOUT_SECONDS);
-        return parseList(output);
+        Environment environment = environmentService.findById(environmentId);
+        return withRestFallback(environmentId, environment,
+                restClient::listApplications,
+                () -> parseList(runCommand(environmentId, "yarn application -list -appStates ALL", COMMAND_TIMEOUT_SECONDS)));
     }
 
     public YarnApplication getStatus(String environmentId, String applicationId) {
         requireValidApplicationId(applicationId);
-        String output = runCommand(environmentId, "yarn application -status " + applicationId, COMMAND_TIMEOUT_SECONDS);
-        return parseStatus(output);
+        Environment environment = environmentService.findById(environmentId);
+        return withRestFallback(environmentId, environment,
+                baseUrl -> restClient.getApplication(baseUrl, applicationId),
+                () -> parseStatus(runCommand(environmentId, "yarn application -status " + applicationId, COMMAND_TIMEOUT_SECONDS)));
     }
 
     public YarnActionResponse kill(String environmentId, String applicationId) {
         requireValidApplicationId(applicationId);
-        String output = runCommand(environmentId, "yarn application -kill " + applicationId, COMMAND_TIMEOUT_SECONDS);
-        boolean success = output.toLowerCase(Locale.ROOT).contains("killed application");
-        return new YarnActionResponse(success, success ? "Application killed" : output.trim());
+        Environment environment = environmentService.findById(environmentId);
+        return withRestFallback(environmentId, environment,
+                baseUrl -> {
+                    restClient.killApplication(baseUrl, applicationId);
+                    return new YarnActionResponse(true, "Application killed");
+                },
+                () -> {
+                    String output = runCommand(environmentId, "yarn application -kill " + applicationId, COMMAND_TIMEOUT_SECONDS);
+                    boolean success = output.toLowerCase(Locale.ROOT).contains("killed application");
+                    return new YarnActionResponse(success, success ? "Application killed" : output.trim());
+                });
     }
 
     public String getLogs(String environmentId, String applicationId, Integer lines) {
@@ -102,8 +137,10 @@ public class YarnService {
     }
 
     public List<YarnNode> listNodes(String environmentId) {
-        String output = runCommand(environmentId, "yarn node -list -all", COMMAND_TIMEOUT_SECONDS);
-        return parseNodes(output);
+        Environment environment = environmentService.findById(environmentId);
+        return withRestFallback(environmentId, environment,
+                restClient::listNodes,
+                () -> parseNodes(runCommand(environmentId, "yarn node -list -all", COMMAND_TIMEOUT_SECONDS)));
     }
 
     /** Raw `yarn queue -status <queue>` output — key:value shaped like application -status, but
@@ -126,6 +163,54 @@ public class YarnService {
             throw new SshOperationException("Invalid YARN application attempt ID: " + attemptId);
         }
         return runCommand(environmentId, "yarn container -list " + attemptId, COMMAND_TIMEOUT_SECONDS);
+    }
+
+    /**
+     * Tries {@code restOperation} against the environment's RM REST API first (when it hasn't
+     * recently failed and a base URL can be derived), falling back to {@code sshFallback} - the
+     * existing `yarn` CLI-over-SSH path - on any failure. A successful REST call clears any
+     * earlier cooldown, so a temporarily-unreachable RM recovers automatically.
+     */
+    private <T> T withRestFallback(String environmentId, Environment environment,
+                                    Function<String, T> restOperation, Supplier<T> sshFallback) {
+        if (restEnabled(environmentId)) {
+            String baseUrl = resolveRmBaseUrl(environment);
+            if (baseUrl != null) {
+                try {
+                    T result = restOperation.apply(baseUrl);
+                    restUnavailableUntil.remove(environmentId);
+                    return result;
+                } catch (YarnRestUnavailableException e) {
+                    log.debug("YARN RM REST API unavailable for environment {} ({}); falling back to SSH for {}s: {}",
+                            environmentId, baseUrl, REST_COOLDOWN.toSeconds(), e.getMessage());
+                    restUnavailableUntil.put(environmentId, Instant.now().plus(REST_COOLDOWN));
+                }
+            }
+        }
+        return sshFallback.get();
+    }
+
+    private boolean restEnabled(String environmentId) {
+        Instant until = restUnavailableUntil.get(environmentId);
+        return until == null || Instant.now().isAfter(until);
+    }
+
+    /** Explicit {@code yarnRmUrl} wins when set; otherwise derives the RM's base URL from the
+     * environment's {@code serverIp} using AWS's own internal-DNS naming convention
+     * (ip-a-b-c-d.ec2.internal) on the standard RM webapp port - the common case when the RM
+     * lives on the same EC2 host the SSH session already connects to. Returns null (meaning:
+     * skip REST, go straight to SSH) only when there's no IP to derive from at all. */
+    private String resolveRmBaseUrl(Environment environment) {
+        String override = environment.getYarnRmUrl();
+        if (override != null && !override.isBlank()) {
+            String trimmed = override.strip();
+            return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
+        }
+        String ip = environment.getServerIp();
+        if (ip == null || ip.isBlank()) {
+            return null;
+        }
+        return "http://ip-" + ip.strip().replace('.', '-') + ".ec2.internal:" + DEFAULT_RM_PORT;
     }
 
     private void requireValidApplicationId(String applicationId) {

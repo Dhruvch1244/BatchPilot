@@ -72,6 +72,27 @@ import { Environment, EnvironmentRequest, EnvironmentType } from '../core/models
           <input name="username" [value]="environment?.username ?? 'hadoop'" disabled />
         </label>
 
+        <button type="button" class="advanced-toggle" (click)="showAdvanced = !showAdvanced">
+          <app-icon name="chevron-up" size="12" [style.transform]="showAdvanced ? 'rotate(0deg)' : 'rotate(180deg)'" />
+          Advanced
+        </button>
+
+        @if (showAdvanced) {
+          <label class="form-field">
+            <span>YARN ResourceManager URL (optional)</span>
+            <input
+              name="yarnRmUrl"
+              [(ngModel)]="yarnRmUrl"
+              placeholder="http://ip-10-0-0-5.ec2.internal:8088"
+            />
+            <span class="form-hint">
+              Lets Applications/Stage Tracker fetch YARN app data via the RM's own REST API instead of over SSH — much
+              faster when reachable. Leave blank to auto-derive from the Server IP above
+              (ip-a-b-c-d.ec2.internal:8088); falls back to SSH automatically either way.
+            </span>
+          </label>
+        }
+
         @if (formError) {
           <div class="form-error">{{ formError }}</div>
         }
@@ -106,6 +127,27 @@ import { Environment, EnvironmentRequest, EnvironmentType } from '../core/models
       background: color-mix(in srgb, var(--accent) 10%, var(--bg-panel-alt));
       color: var(--text);
     }
+    .advanced-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      align-self: flex-start;
+      background: none;
+      border: none;
+      padding: 4px 0;
+      color: var(--text-dim);
+      font-size: 12px;
+      cursor: pointer;
+      transition: color 0.12s ease;
+    }
+    .advanced-toggle:hover { color: var(--text); }
+    .form-hint {
+      display: block;
+      margin-top: 6px;
+      color: var(--text-dim);
+      font-size: 11px;
+      line-height: 1.5;
+    }
   `]
 })
 export class EnvironmentFormModalComponent implements OnInit {
@@ -120,6 +162,8 @@ export class EnvironmentFormModalComponent implements OnInit {
   serverIp = '';
   sshPort = 22;
   ppkPath = '';
+  yarnRmUrl = '';
+  showAdvanced = false;
   submitting = false;
   formError: string | null = null;
 
@@ -145,6 +189,8 @@ export class EnvironmentFormModalComponent implements OnInit {
       this.serverIp = this.environment.serverIp;
       this.sshPort = this.environment.sshPort;
       this.ppkPath = this.environment.ppkPath;
+      this.yarnRmUrl = this.environment.yarnRmUrl ?? '';
+      this.showAdvanced = !!this.yarnRmUrl;
     }
   }
 
@@ -190,7 +236,8 @@ export class EnvironmentFormModalComponent implements OnInit {
       type: this.type,
       serverIp: this.serverIp,
       sshPort: Number(this.sshPort),
-      ppkPath: this.ppkPath
+      ppkPath: this.ppkPath,
+      yarnRmUrl: this.yarnRmUrl.trim() || undefined
     };
     try {
       if (this.editing && this.environment) {
