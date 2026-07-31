@@ -1,5 +1,5 @@
 import { DatePipe, NgTemplateOutlet } from '@angular/common';
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
@@ -98,8 +98,17 @@ function formatDuration(ms: number): string {
                 @for (group of file.stages; track group.stage) {
                   <div class="stage-detail-group">
                     <span class="stage-group-label">{{ group.label }}</span>
-                    @for (m of group.matches; track m.applicationId) {
+                    @for (m of visibleMatches(file, group); track m.applicationId) {
                       <ng-container *ngTemplateOutlet="matchRow; context: { $implicit: m, file: file }"></ng-container>
+                    }
+                    @if (group.matches.length > 1 && !isGroupExpanded(file, group)) {
+                      <button class="stage-history-toggle" type="button" (click)="toggleGroup(file, group)">
+                        Show {{ group.matches.length - 1 }} earlier run{{ group.matches.length - 1 > 1 ? 's' : '' }}
+                      </button>
+                    } @else if (group.matches.length > 1) {
+                      <button class="stage-history-toggle" type="button" (click)="toggleGroup(file, group)">
+                        Show latest run only
+                      </button>
                     }
                   </div>
                 }
@@ -151,6 +160,9 @@ function formatDuration(ms: number): string {
               @if (m.finishTime) {
                 <span>finished {{ m.finishTime | date: 'short' }}</span>
               }
+              @if (m.runTimestamp) {
+                <span><app-icon name="history" size="11" /> run {{ m.runTimestamp | date: 'short' }}</span>
+              }
             </div>
           </div>
           @if (m.progressPercent != null) {
@@ -185,6 +197,9 @@ function formatDuration(ms: number): string {
 export class StageTrackerPanelComponent implements OnInit {
   @Input({ required: true }) environmentId!: string;
   @Input() initialQuery?: string;
+  /** Lets the owning tab keep its title in sync with whatever this instance last
+   * searched - useful now that more than one Stage Tracker tab can be open at once. */
+  @Output() queryChange = new EventEmitter<string>();
 
   query = '';
   result: StageSearchResult | null = null;
@@ -193,6 +208,10 @@ export class StageTrackerPanelComponent implements OnInit {
   error: string | null = null;
   killing = new Set<string>();
   logsFor: string | null = null;
+  /** Stage groups with more than one run collapse to the latest by default -
+   * older/finished runs are usually noise once a file has completed a stage
+   * more than once. Keyed by "coreFileName::stage". */
+  expandedGroups = new Set<string>();
 
   readonly duration = formatDuration;
 
@@ -228,14 +247,39 @@ export class StageTrackerPanelComponent implements OnInit {
     if (!this.query.trim()) return;
     this.searching = true;
     this.error = null;
+    this.expandedGroups = new Set();
     try {
       this.result = await firstValueFrom(this.api.searchStages(this.environmentId, this.query.trim()));
+      this.queryChange.emit(this.query.trim());
       await this.loadHistory();
     } catch (e) {
       this.error = e instanceof Error ? e.message : 'Search failed';
     } finally {
       this.searching = false;
     }
+  }
+
+  private groupKey(file: FileStageResult, group: StageGroup): string {
+    return `${file.coreFileName}::${group.stage}`;
+  }
+
+  isGroupExpanded(file: FileStageResult, group: StageGroup): boolean {
+    return this.expandedGroups.has(this.groupKey(file, group));
+  }
+
+  toggleGroup(file: FileStageResult, group: StageGroup): void {
+    const key = this.groupKey(file, group);
+    if (this.expandedGroups.has(key)) {
+      this.expandedGroups.delete(key);
+    } else {
+      this.expandedGroups.add(key);
+    }
+  }
+
+  /** Matches are already sorted newest-first, so collapsing to "just the latest" is
+   * just the first element. */
+  visibleMatches(file: FileStageResult, group: StageGroup): StageMatch[] {
+    return this.isGroupExpanded(file, group) ? group.matches : group.matches.slice(0, 1);
   }
 
   stageIcon(stage: PipelineStage): IconName {

@@ -1,8 +1,9 @@
+import { DatePipe } from '@angular/common';
 import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
-import { QuickExecuteResult, S3FileType } from '../core/models';
+import { CommandHistoryEntry, QuickExecuteResult, S3FileType } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
 
 type SourceMode = 'remote' | 'upload';
@@ -21,7 +22,7 @@ function joinPath(directory: string, name: string): string {
 @Component({
   selector: 'app-s3-transfer-panel',
   standalone: true,
-  imports: [FormsModule, IconComponent],
+  imports: [FormsModule, DatePipe, IconComponent],
   template: `
     <div class="s3-transfer-panel">
       <div class="form">
@@ -155,6 +156,31 @@ function joinPath(directory: string, name: string): string {
             }
           </div>
         }
+
+        @if (pastUploads.length > 0) {
+          <div class="quick-execute-past">
+            <button class="quick-execute-past-toggle" type="button" (click)="showPast = !showPast">
+              <app-icon [name]="showPast ? 'chevron-up' : 'chevron-down'" size="12" />
+              Past uploads ({{ pastUploads.length }})
+            </button>
+            @if (showPast) {
+              <div class="quick-execute-past-list">
+                @for (entry of pastUploads; track entry.id) {
+                  <div class="quick-execute-past-item quick-execute-past-item-static">
+                    <span class="status-badge" [class]="entry.success ? 'status-success' : 'status-failure'">
+                      {{ entry.success ? 'OK' : 'EXIT ' + entry.exitCode }}
+                    </span>
+                    <span class="quick-execute-past-command">{{ entry.command }}</span>
+                    <span class="quick-execute-past-meta">{{ entry.environmentName }} · {{ entry.executedAt | date: 'short' }}</span>
+                    <button class="icon-btn" type="button" title="Copy command" (click)="copyCommand(entry)">
+                      <app-icon name="duplicate" size="13" />
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
       </div>
     </div>
   `,
@@ -206,6 +232,8 @@ function joinPath(directory: string, name: string): string {
       align-self: flex-start;
     }
     .s3-output-toggle:hover { text-decoration: underline; }
+    .quick-execute-past-item-static { cursor: default; }
+    .quick-execute-past-item-static:hover { background: transparent; }
   `]
 })
 export class S3TransferPanelComponent implements OnInit {
@@ -228,11 +256,26 @@ export class S3TransferPanelComponent implements OnInit {
   error: string | null = null;
   result: QuickExecuteResult | null = null;
   showFullOutput = false;
+  pastUploads: CommandHistoryEntry[] = [];
+  showPast = false;
 
   constructor(private api: ApiService) {}
 
   ngOnInit(): void {
     this.loadVendors();
+    this.loadPastUploads();
+  }
+
+  async loadPastUploads(): Promise<void> {
+    try {
+      this.pastUploads = await firstValueFrom(this.api.commandHistory('S3_TRANSFER', 20));
+    } catch {
+      // Non-fatal: past-upload recall is a convenience, not required to run a transfer.
+    }
+  }
+
+  copyCommand(entry: CommandHistoryEntry): void {
+    navigator.clipboard.writeText(entry.command);
   }
 
   async loadVendors(): Promise<void> {
@@ -303,6 +346,7 @@ export class S3TransferPanelComponent implements OnInit {
         })
       );
       await this.loadVendors();
+      await this.loadPastUploads();
     } catch (e) {
       this.error = e instanceof Error ? e.message : 'Transfer failed';
     } finally {

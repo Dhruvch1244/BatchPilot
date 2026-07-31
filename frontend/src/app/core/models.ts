@@ -67,6 +67,12 @@ export interface Tab {
   type: TabType;
   environmentId: string;
   title: string;
+  /** This tab's position among open tabs of the same type+environment at creation
+   * time (1 for the first, 2 for the second, ...). Kept stable for the tab's whole
+   * lifetime so a dynamic title update (current folder, current search query) can
+   * still append "#2" and stay distinguishable from a sibling tab that happens to
+   * land on the same folder/query. */
+  ordinal: number;
 }
 
 // ---------- YARN applications ----------
@@ -119,6 +125,9 @@ export interface StageMatch {
   startTime: number | null;
   finishTime: number | null;
   elapsedMs: number;
+  /** Epoch millis of a run timestamp embedded in the application name (e.g.
+   * Validation's `..._20260728-022520:349514` suffix), null if not present. */
+  runTimestamp: number | null;
 }
 
 export type PipelineStage =
@@ -157,4 +166,19 @@ export interface StageSearchHistoryEntry {
   searchedAt: number;
   matchCount: number;
   stageCounts: Record<string, number>;
+}
+
+// ---------- Command history (Quick Execute + S3 Transfer) ----------
+export type CommandHistorySource = 'QUICK_EXECUTE' | 'S3_TRANSFER';
+
+export interface CommandHistoryEntry {
+  id: string;
+  environmentId: string;
+  environmentName: string;
+  source: CommandHistorySource;
+  command: string;
+  success: boolean;
+  exitCode: number;
+  durationMs: number;
+  executedAt: number;
 }

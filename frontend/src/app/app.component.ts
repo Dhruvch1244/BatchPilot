@@ -65,53 +65,83 @@ export class AppComponent implements OnInit {
       );
       return;
     }
-    const env = this.state.environments().find((e) => e.id === environmentId);
-    const id = nextTabId();
-    const title = `${env?.name ?? 'Terminal'} #${terminalTabCount + 1}`;
-    this.tabs = [...this.tabs, { id, type: 'terminal', environmentId, title }];
-    this.activeTabId = id;
+    this.openTab(environmentId, 'terminal', (env, n) => `${env?.name ?? 'Terminal'} #${n}`);
   }
 
   openFilesTab(environmentId: string): void {
-    this.openSingletonTab(environmentId, 'files', (env) => `${env?.name ?? 'Files'} — Explorer`);
+    this.openTab(environmentId, 'files', (env, n) => `${env?.name ?? 'Files'} — Explorer${n > 1 ? ' #' + n : ''}`);
   }
 
   openApplicationsTab(environmentId: string): void {
-    this.openSingletonTab(environmentId, 'applications', (env) => `${env?.name ?? 'Applications'} — YARN`);
+    this.openTab(environmentId, 'applications', (env, n) => `${env?.name ?? 'Applications'} — YARN${n > 1 ? ' #' + n : ''}`);
   }
 
   openStageTrackerTab(environmentId: string): void {
-    this.openSingletonTab(environmentId, 'stage-tracker', (env) => `${env?.name ?? 'Stage Tracker'} — Stages`);
+    this.openTab(environmentId, 'stage-tracker', (env, n) => `${env?.name ?? 'Stage Tracker'} — Stages${n > 1 ? ' #' + n : ''}`);
   }
 
   openS3TransferTab(environmentId: string): void {
-    this.openSingletonTab(environmentId, 's3-transfer', (env) => `${env?.name ?? 'S3 Transfer'} — Staging`);
+    this.openTab(environmentId, 's3-transfer', (env, n) => `${env?.name ?? 'S3 Transfer'} — Staging${n > 1 ? ' #' + n : ''}`);
   }
 
   /** Applications rows navigate here with a filename extracted from the YARN app name.
-   * Always opens a fresh Stage Tracker tab (closing any existing one for this
-   * environment first) so the search reliably runs regardless of whether one was
-   * already open — simpler and more predictable than trying to push a new query into
-   * a live component instance. */
+   * Always opens a fresh Stage Tracker tab, titled with the query itself so it's
+   * immediately identifiable among any other Stage Tracker tabs already open — existing
+   * tabs (and whatever they're mid-searching) are left alone rather than closed, now
+   * that multiple tabs of the same type are allowed. */
   openStageTrackerForQuery(environmentId: string, query: string): void {
-    this.tabs = this.tabs.filter((t) => !(t.type === 'stage-tracker' && t.environmentId === environmentId));
     this.pendingStageTrackerQuery = query;
+    this.openTab(environmentId, 'stage-tracker', (env) => `${env?.name ?? 'Stage Tracker'} — ${query}`);
+  }
+
+  /** Every panel type can now have multiple tabs open at once (per environment); each
+   * gets a numbered title (`Files — Explorer #2`) so tabs of the same type stay
+   * distinguishable in the tab strip - see also the toolbar's hover preview, which
+   * lists already-open tabs of a type so opening a duplicate is a deliberate choice,
+   * not the only option. */
+  private openTab(environmentId: string, type: Tab['type'], titleFor: (env: Environment | undefined, n: number) => string): void {
+    const n = this.tabs.filter((t) => t.type === type && t.environmentId === environmentId).length + 1;
     const env = this.state.environments().find((e) => e.id === environmentId);
     const id = nextTabId();
-    this.tabs = [...this.tabs, { id, type: 'stage-tracker', environmentId, title: `${env?.name ?? 'Stage Tracker'} — Stages` }];
+    this.tabs = [...this.tabs, { id, type, environmentId, title: titleFor(env, n), ordinal: n }];
     this.activeTabId = id;
   }
 
-  private openSingletonTab(environmentId: string, type: Tab['type'], titleFor: (env?: Environment) => string): void {
-    const existing = this.tabs.find((t) => t.type === type && t.environmentId === environmentId);
-    if (existing) {
-      this.activeTabId = existing.id;
-      return;
-    }
-    const env = this.state.environments().find((e) => e.id === environmentId);
-    const id = nextTabId();
-    this.tabs = [...this.tabs, { id, type, environmentId, title: titleFor(env) }];
+  activateTab(id: string): void {
     this.activeTabId = id;
+  }
+
+  renameTab(tabId: string, title: string): void {
+    this.tabs = this.tabs.map((t) => (t.id === tabId ? { ...t, title } : t));
+  }
+
+  /** Appends this tab's original "#2"-style ordinal suffix (if any) so a dynamic title
+   * update never loses the thing that made it distinguishable from a sibling tab in
+   * the first place - e.g. two Files tabs that both happen to browse to the same
+   * folder should still read "... — /data" and "... — /data #2", not the same title
+   * twice. */
+  private withOrdinalSuffix(tab: Tab, label: string): string {
+    return tab.ordinal > 1 ? `${label} #${tab.ordinal}` : label;
+  }
+
+  /** Keeps a Files tab's title showing wherever it's currently browsing, so multiple
+   * Files tabs for the same environment stay distinguishable at a glance instead of
+   * all reading identically. */
+  onFilesPathChange(tabId: string, path: string): void {
+    const tab = this.tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+    const env = this.state.environments().find((e) => e.id === tab.environmentId);
+    const label = path === '.' || path === '/' ? 'Explorer' : path;
+    this.renameTab(tabId, `${env?.name ?? 'Files'} — ${this.withOrdinalSuffix(tab, label)}`);
+  }
+
+  /** Same idea as onFilesPathChange, but for what a Stage Tracker tab is currently
+   * searching. */
+  onStageTrackerQueryChange(tabId: string, query: string): void {
+    const tab = this.tabs.find((t) => t.id === tabId);
+    if (!tab || !query.trim()) return;
+    const env = this.state.environments().find((e) => e.id === tab.environmentId);
+    this.renameTab(tabId, `${env?.name ?? 'Stage Tracker'} — ${this.withOrdinalSuffix(tab, query.trim())}`);
   }
 
   closeTab(id: string): void {

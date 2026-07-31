@@ -3,6 +3,7 @@ package com.batchpilot.service;
 import com.batchpilot.dto.QuickExecuteRequest;
 import com.batchpilot.dto.QuickExecuteResponse;
 import com.batchpilot.dto.S3CopyRequest;
+import com.batchpilot.model.CommandHistorySource;
 import com.batchpilot.repository.VendorRepository;
 import org.springframework.stereotype.Service;
 
@@ -88,7 +89,7 @@ public class S3TransferService {
         execRequest.setEnvironmentId(environmentId);
         execRequest.setCommand(command);
         execRequest.setTimeoutSeconds(120);
-        return quickExecuteService.execute(execRequest);
+        return quickExecuteService.execute(execRequest, CommandHistorySource.S3_TRANSFER);
     }
 
     private String requireValid(String value, Pattern pattern, String label) {
