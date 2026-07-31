@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
@@ -158,6 +158,10 @@ function formatSize(bytes: number): string {
 })
 export class FileManagerPanelComponent implements OnInit {
   @Input({ required: true }) environmentId!: string;
+  /** Lets the owning tab keep its title in sync with whatever folder this instance is
+   * currently browsing - useful now that more than one Files tab can be open at once
+   * for the same environment. */
+  @Output() pathChange = new EventEmitter<string>();
   @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
 
   path = '.';
@@ -183,6 +187,7 @@ export class FileManagerPanelComponent implements OnInit {
     this.error = null;
     try {
       this.entries = await firstValueFrom(this.api.listFiles(this.environmentId, this.path, this.search || undefined));
+      this.pathChange.emit(this.path);
     } catch (e) {
       this.error = e instanceof Error ? e.message : 'Failed to list directory';
     } finally {

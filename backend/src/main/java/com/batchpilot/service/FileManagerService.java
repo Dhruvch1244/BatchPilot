@@ -14,6 +14,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Remote file browsing and transfer over SFTP for an already-connected environment.
@@ -27,6 +28,14 @@ public class FileManagerService {
      * search under a huge tree doesn't hang the request or the remote session forever. */
     private static final int MAX_SEARCH_DEPTH = 6;
     private static final int MAX_SEARCH_RESULTS = 2000;
+
+    /** Common Linux system/runtime directories that never hold a user's own pipeline
+     * files — skipped entirely (not matched, not descended into) so a deep search
+     * from a broad starting point doesn't wander into OS internals. Dotfolders
+     * (hidden/"private" folders, e.g. .ssh, .config) are skipped separately below,
+     * by name pattern rather than an explicit list. */
+    private static final Set<String> SKIP_DIR_NAMES = Set.of(
+            "proc", "sys", "dev", "run", "boot", "lost+found", "snap", "etc", "cgroup");
 
     private final SshConnectionManager connectionManager;
 
@@ -63,7 +72,9 @@ public class FileManagerService {
     /** Depth-first walk of {@code dirPath}, matching entry names (not full paths) against
      * {@code queryLower}. A subtree that errors out (e.g. permission denied) is skipped
      * rather than failing the whole search — one unreadable folder shouldn't hide matches
-     * found elsewhere. */
+     * found elsewhere. Hidden ("dotfolder") and common Linux system directories are
+     * skipped entirely — they're never where a user's own pipeline files live, and
+     * searching into them just slows a deep search down for no benefit. */
     private void searchRecursive(SftpClient sftp, String dirPath, String queryLower, List<FileEntry> results, int depth) {
         if (depth > MAX_SEARCH_DEPTH || results.size() >= MAX_SEARCH_RESULTS) {
             return;
@@ -83,6 +94,9 @@ public class FileManagerService {
                 continue;
             }
             boolean isDirectory = dirEntry.getAttributes().isDirectory();
+            if (isDirectory && isSkippedDirectory(name)) {
+                continue;
+            }
             if (name.toLowerCase().contains(queryLower)) {
                 results.add(toFileEntry(dirPath, dirEntry));
             }
@@ -90,6 +104,10 @@ public class FileManagerService {
                 searchRecursive(sftp, joinPath(dirPath, name), queryLower, results, depth + 1);
             }
         }
+    }
+
+    private boolean isSkippedDirectory(String name) {
+        return name.startsWith(".") || SKIP_DIR_NAMES.contains(name.toLowerCase());
     }
 
     public void download(String environmentId, String remotePath, OutputStream destination) {

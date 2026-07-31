@@ -136,10 +136,39 @@ public class StageTrackerService {
             }
         }
 
-        // Only stages actually present, ordered by their earliest observed start time —
-        // "the flow" for this particular file, not a fixed always-show-every-stage list.
-        List<StageGroup> groups = byStage.entrySet().stream()
+        // Only stages actually present. The five core stages (Preprocessor, Validation,
+        // Normalization, Delta, Transmission) always occur in that relative order when
+        // present - that ordering is fixed, not inferred from timing, since timing can
+        // be noisy (clock skew, retries). Any other recognized stage (Outbound, or a
+        // future addition) has no fixed position, so it's interleaved among the core
+        // stages by its earliest observed start time instead - "the flow" for whatever
+        // extra step this particular file happens to have.
+        List<Map.Entry<PipelineStage, List<StageMatch>>> entries = new ArrayList<>(byStage.entrySet());
+        List<Map.Entry<PipelineStage, List<StageMatch>>> core = entries.stream()
+                .filter(e -> PipelineStage.CORE_ORDER.contains(e.getKey()))
+                .sorted(Comparator.comparingInt(e -> PipelineStage.CORE_ORDER.indexOf(e.getKey())))
+                .toList();
+        List<Map.Entry<PipelineStage, List<StageMatch>>> extras = entries.stream()
+                .filter(e -> !PipelineStage.CORE_ORDER.contains(e.getKey()))
                 .sorted(Comparator.comparingLong(e -> earliestStart(e.getValue())))
+                .toList();
+
+        List<Map.Entry<PipelineStage, List<StageMatch>>> ordered = new ArrayList<>();
+        int coreIndex = 0;
+        for (Map.Entry<PipelineStage, List<StageMatch>> extra : extras) {
+            long extraStart = earliestStart(extra.getValue());
+            while (coreIndex < core.size() && earliestStart(core.get(coreIndex).getValue()) <= extraStart) {
+                ordered.add(core.get(coreIndex));
+                coreIndex++;
+            }
+            ordered.add(extra);
+        }
+        while (coreIndex < core.size()) {
+            ordered.add(core.get(coreIndex));
+            coreIndex++;
+        }
+
+        List<StageGroup> groups = ordered.stream()
                 .map(e -> {
                     List<StageMatch> sorted = new ArrayList<>(e.getValue());
                     sorted.sort(Comparator.comparing((StageMatch sm) -> sm.getStartTime() == null ? 0L : sm.getStartTime()).reversed());
@@ -199,6 +228,7 @@ public class StageTrackerService {
         if (start != null) {
             elapsed = (finish != null ? finish : now) - start;
         }
+        PipelineStage.Extraction extraction = PipelineStage.extract(detail.getApplicationName());
         StageMatch match = StageMatch.builder()
                 .applicationId(detail.getApplicationId())
                 .applicationName(detail.getApplicationName())
@@ -209,8 +239,9 @@ public class StageTrackerService {
                 .startTime(start)
                 .finishTime(finish)
                 .elapsedMs(Math.max(elapsed, 0))
+                .runTimestamp(extraction.runTimestamp())
                 .build();
-        return new StageMatchWithExtraction(match, PipelineStage.extract(detail.getApplicationName()));
+        return new StageMatchWithExtraction(match, extraction);
     }
 
     private record StageMatchWithExtraction(StageMatch match, PipelineStage.Extraction extraction) {

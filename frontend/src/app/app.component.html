@@ -1,5 +1,6 @@
 <div class="app-shell" [class]="'theme-' + state.settings().theme">
   <app-toolbar
+    [tabs]="tabs"
     (newTerminal)="handleNewTerminal()"
     (openFiles)="openFilesForSelected()"
     (openQuickExecute)="quickExecuteOpen = true"
@@ -7,6 +8,7 @@
     (openApplications)="openApplicationsForSelected()"
     (openStageTracker)="openStageTrackerForSelected()"
     (openS3Transfer)="openS3TransferForSelected()"
+    (activateTab)="activateTab($event)"
   ></app-toolbar>
 
   <div class="app-body">
@@ -37,7 +39,10 @@
               @if (tab.type === 'terminal') {
                 <app-terminal-tab [environmentId]="tab.environmentId" [active]="tab.id === activeTabId"></app-terminal-tab>
               } @else if (tab.type === 'files') {
-                <app-file-manager-panel [environmentId]="tab.environmentId"></app-file-manager-panel>
+                <app-file-manager-panel
+                  [environmentId]="tab.environmentId"
+                  (pathChange)="onFilesPathChange(tab.id, $event)"
+                ></app-file-manager-panel>
               } @else if (tab.type === 'applications') {
                 <app-applications-panel
                   [environmentId]="tab.environmentId"
@@ -47,6 +52,7 @@
                 <app-stage-tracker-panel
                   [environmentId]="tab.environmentId"
                   [initialQuery]="pendingStageTrackerQuery"
+                  (queryChange)="onStageTrackerQueryChange(tab.id, $event)"
                 ></app-stage-tracker-panel>
               } @else {
                 <app-s3-transfer-panel [environmentId]="tab.environmentId"></app-s3-transfer-panel>

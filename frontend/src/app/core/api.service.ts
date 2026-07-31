@@ -3,6 +3,8 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   AppSettings,
+  CommandHistoryEntry,
+  CommandHistorySource,
   ConnectionStatus,
   Environment,
   EnvironmentRequest,
@@ -186,6 +188,19 @@ export class ApiService {
 
   clearStageSearchHistory(): Observable<void> {
     return this.http.delete<void>('/api/stage-tracker/history');
+  }
+
+  // ---------- Command history (Quick Execute + S3 Transfer) ----------
+  commandHistory(source?: CommandHistorySource, limit = 20): Observable<CommandHistoryEntry[]> {
+    let params = new HttpParams().set('limit', limit);
+    if (source) params = params.set('source', source);
+    return this.http.get<CommandHistoryEntry[]>('/api/command-history', { params });
+  }
+
+  clearCommandHistory(source?: CommandHistorySource): Observable<void> {
+    let params = new HttpParams();
+    if (source) params = params.set('source', source);
+    return this.http.delete<void>('/api/command-history', { params });
   }
 
   // ---------- Settings ----------

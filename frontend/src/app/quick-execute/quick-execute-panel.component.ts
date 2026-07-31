@@ -1,16 +1,18 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { DatePipe } from '@angular/common';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { AppStateService } from '../core/app-state.service';
-import { QuickExecuteResult } from '../core/models';
+import { CommandHistoryBusService } from '../core/command-history-bus.service';
+import { CommandHistoryEntry, QuickExecuteResult } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
 import { ModalComponent } from '../shared/modal.component';
 
 @Component({
   selector: 'app-quick-execute-panel',
   standalone: true,
-  imports: [FormsModule, IconComponent, ModalComponent],
+  imports: [FormsModule, DatePipe, IconComponent, ModalComponent],
   template: `
     <app-modal title="Quick Execute" [width]="600" (close)="close.emit()">
       <div class="form">
@@ -43,6 +45,28 @@ import { ModalComponent } from '../shared/modal.component';
           <div class="form-error">{{ error }}</div>
         }
 
+        @if (pastCommands.length > 0) {
+          <div class="quick-execute-past">
+            <button class="quick-execute-past-toggle" type="button" (click)="showPast = !showPast">
+              <app-icon [name]="showPast ? 'chevron-up' : 'chevron-down'" size="12" />
+              Past commands ({{ pastCommands.length }})
+            </button>
+            @if (showPast) {
+              <div class="quick-execute-past-list">
+                @for (entry of pastCommands; track entry.id) {
+                  <button class="quick-execute-past-item" type="button" title="Use this command again" (click)="usePast(entry)">
+                    <span class="status-badge" [class]="entry.success ? 'status-success' : 'status-failure'">
+                      {{ entry.success ? 'OK' : 'EXIT ' + entry.exitCode }}
+                    </span>
+                    <span class="quick-execute-past-command">{{ entry.command }}</span>
+                    <span class="quick-execute-past-meta">{{ entry.environmentName }} · {{ entry.executedAt | date: 'short' }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+
         <div class="quick-execute-history">
           @for (result of history; track $index) {
             <div class="quick-execute-result">
@@ -72,7 +96,7 @@ import { ModalComponent } from '../shared/modal.component';
     </app-modal>
   `
 })
-export class QuickExecutePanelComponent implements OnInit {
+export class QuickExecutePanelComponent implements OnInit, OnDestroy {
   @Input() environmentId: string | null = null;
   @Output() close = new EventEmitter<void>();
 
@@ -81,11 +105,41 @@ export class QuickExecutePanelComponent implements OnInit {
   running = false;
   error: string | null = null;
   history: QuickExecuteResult[] = [];
+  /** Persisted across sessions (unlike `history` above, which is just this modal
+   * instance's own run output) so past command text survives reopening the modal. */
+  pastCommands: CommandHistoryEntry[] = [];
+  showPast = false;
 
-  constructor(private api: ApiService, public state: AppStateService) {}
+  private historyBusSub?: Subscription;
+
+  constructor(private api: ApiService, public state: AppStateService, private historyBus: CommandHistoryBusService) {}
 
   ngOnInit(): void {
     this.targetId = this.environmentId ?? this.connectedEnvironments()[0]?.id ?? '';
+    this.loadPastCommands();
+    // A command run from an S3 Transfer tab funnels through the same history store,
+    // so its "Past commands" here can go stale without this - reload whenever any
+    // panel records a new entry, not just this one.
+    this.historyBusSub = this.historyBus.changes.subscribe(() => this.loadPastCommands());
+  }
+
+  ngOnDestroy(): void {
+    this.historyBusSub?.unsubscribe();
+  }
+
+  async loadPastCommands(): Promise<void> {
+    try {
+      this.pastCommands = await firstValueFrom(this.api.commandHistory('QUICK_EXECUTE', 20));
+    } catch {
+      // Non-fatal: past-command recall is a convenience, not required to run a command.
+    }
+  }
+
+  usePast(entry: CommandHistoryEntry): void {
+    this.command = entry.command;
+    if (this.connectedEnvironments().some((e) => e.id === entry.environmentId)) {
+      this.targetId = entry.environmentId;
+    }
   }
 
   connectedEnvironments() {
@@ -106,6 +160,8 @@ export class QuickExecutePanelComponent implements OnInit {
     try {
       const result = await firstValueFrom(this.api.runQuickExecute(this.targetId, this.command));
       this.history = [result, ...this.history].slice(0, 20);
+      await this.loadPastCommands();
+      this.historyBus.notifyChanged();
     } catch (e) {
       this.error = e instanceof Error ? e.message : 'Command failed to execute';
     } finally {
