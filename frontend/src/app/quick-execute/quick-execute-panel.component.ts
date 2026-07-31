@@ -1,9 +1,10 @@
 import { DatePipe } from '@angular/common';
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { AppStateService } from '../core/app-state.service';
+import { CommandHistoryBusService } from '../core/command-history-bus.service';
 import { CommandHistoryEntry, QuickExecuteResult } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
 import { ModalComponent } from '../shared/modal.component';
@@ -95,7 +96,7 @@ import { ModalComponent } from '../shared/modal.component';
     </app-modal>
   `
 })
-export class QuickExecutePanelComponent implements OnInit {
+export class QuickExecutePanelComponent implements OnInit, OnDestroy {
   @Input() environmentId: string | null = null;
   @Output() close = new EventEmitter<void>();
 
@@ -109,11 +110,21 @@ export class QuickExecutePanelComponent implements OnInit {
   pastCommands: CommandHistoryEntry[] = [];
   showPast = false;
 
-  constructor(private api: ApiService, public state: AppStateService) {}
+  private historyBusSub?: Subscription;
+
+  constructor(private api: ApiService, public state: AppStateService, private historyBus: CommandHistoryBusService) {}
 
   ngOnInit(): void {
     this.targetId = this.environmentId ?? this.connectedEnvironments()[0]?.id ?? '';
     this.loadPastCommands();
+    // A command run from an S3 Transfer tab funnels through the same history store,
+    // so its "Past commands" here can go stale without this - reload whenever any
+    // panel records a new entry, not just this one.
+    this.historyBusSub = this.historyBus.changes.subscribe(() => this.loadPastCommands());
+  }
+
+  ngOnDestroy(): void {
+    this.historyBusSub?.unsubscribe();
   }
 
   async loadPastCommands(): Promise<void> {
@@ -150,6 +161,7 @@ export class QuickExecutePanelComponent implements OnInit {
       const result = await firstValueFrom(this.api.runQuickExecute(this.targetId, this.command));
       this.history = [result, ...this.history].slice(0, 20);
       await this.loadPastCommands();
+      this.historyBus.notifyChanged();
     } catch (e) {
       this.error = e instanceof Error ? e.message : 'Command failed to execute';
     } finally {

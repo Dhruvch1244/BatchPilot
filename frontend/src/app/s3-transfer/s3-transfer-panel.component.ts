@@ -1,8 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { ApiService } from '../core/api.service';
+import { CommandHistoryBusService } from '../core/command-history-bus.service';
 import { CommandHistoryEntry, QuickExecuteResult, S3FileType } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
 
@@ -236,7 +237,7 @@ function joinPath(directory: string, name: string): string {
     .quick-execute-past-item-static:hover { background: transparent; }
   `]
 })
-export class S3TransferPanelComponent implements OnInit {
+export class S3TransferPanelComponent implements OnInit, OnDestroy {
   @Input({ required: true }) environmentId!: string;
   @ViewChild('fileInput') fileInputRef!: ElementRef<HTMLInputElement>;
 
@@ -259,11 +260,20 @@ export class S3TransferPanelComponent implements OnInit {
   pastUploads: CommandHistoryEntry[] = [];
   showPast = false;
 
-  constructor(private api: ApiService) {}
+  private historyBusSub?: Subscription;
+
+  constructor(private api: ApiService, private historyBus: CommandHistoryBusService) {}
 
   ngOnInit(): void {
     this.loadVendors();
     this.loadPastUploads();
+    // More than one S3 Transfer tab can be open at once now - a run in a sibling tab
+    // shouldn't leave this one's "Past uploads" list stale until it happens to reload.
+    this.historyBusSub = this.historyBus.changes.subscribe(() => this.loadPastUploads());
+  }
+
+  ngOnDestroy(): void {
+    this.historyBusSub?.unsubscribe();
   }
 
   async loadPastUploads(): Promise<void> {
@@ -347,6 +357,7 @@ export class S3TransferPanelComponent implements OnInit {
       );
       await this.loadVendors();
       await this.loadPastUploads();
+      this.historyBus.notifyChanged();
     } catch (e) {
       this.error = e instanceof Error ? e.message : 'Transfer failed';
     } finally {
