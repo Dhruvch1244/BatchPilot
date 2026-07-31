@@ -13,6 +13,7 @@ import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { WebLinksAddon } from 'xterm-addon-web-links';
 import { AppStateService } from '../core/app-state.service';
+import { AppTheme } from '../core/models';
 
 // VS Code "Dark+" inspired ANSI palette, with the green slots tied to the
 // Fidelity Investments brand green so `ls` colors, prompts, etc. read as part
@@ -70,6 +71,144 @@ const THEME_LIGHT = {
   brightWhite: '#5c5c5c'
 };
 
+// Official Dracula terminal palette (draculatheme.com/terminal).
+const THEME_DRACULA = {
+  background: '#282a36',
+  foreground: '#f8f8f2',
+  cursor: '#f8f8f2',
+  cursorAccent: '#282a36',
+  selection: '#44475a',
+  black: '#21222c',
+  red: '#ff5555',
+  green: '#50fa7b',
+  yellow: '#f1fa8c',
+  blue: '#bd93f9',
+  magenta: '#ff79c6',
+  cyan: '#8be9fd',
+  white: '#f8f8f2',
+  brightBlack: '#6272a4',
+  brightRed: '#ff6e6e',
+  brightGreen: '#69ff94',
+  brightYellow: '#ffffa5',
+  brightBlue: '#d6acff',
+  brightMagenta: '#ff92df',
+  brightCyan: '#a4ffff',
+  brightWhite: '#ffffff'
+};
+
+// Standard Nord terminal palette (nordtheme.com).
+const THEME_NORD = {
+  background: '#2e3440',
+  foreground: '#d8dee9',
+  cursor: '#d8dee9',
+  cursorAccent: '#2e3440',
+  selection: '#434c5e',
+  black: '#3b4252',
+  red: '#bf616a',
+  green: '#a3be8c',
+  yellow: '#ebcb8b',
+  blue: '#81a1c1',
+  magenta: '#b48ead',
+  cyan: '#88c0d0',
+  white: '#e5e9f0',
+  brightBlack: '#4c566a',
+  brightRed: '#bf616a',
+  brightGreen: '#a3be8c',
+  brightYellow: '#ebcb8b',
+  brightBlue: '#81a1c1',
+  brightMagenta: '#b48ead',
+  brightCyan: '#8fbcbb',
+  brightWhite: '#eceff4'
+};
+
+// Standard Solarized palette, light variant. "white"/"brightWhite" darkened
+// past the official spec values (which run close to the background itself)
+// for the same reason THEME_LIGHT's were darkened above - unreadable
+// otherwise on a light background.
+const THEME_SOLARIZED_LIGHT = {
+  background: '#fdf6e3',
+  foreground: '#657b83',
+  cursor: '#657b83',
+  cursorAccent: '#fdf6e3',
+  selection: '#eee8d5',
+  black: '#073642',
+  red: '#dc322f',
+  green: '#859900',
+  yellow: '#b58900',
+  blue: '#268bd2',
+  magenta: '#d33682',
+  cyan: '#2aa198',
+  white: '#586e75',
+  brightBlack: '#002b36',
+  brightRed: '#cb4b16',
+  brightGreen: '#586e75',
+  brightYellow: '#657b83',
+  brightBlue: '#268bd2',
+  brightMagenta: '#6c71c4',
+  brightCyan: '#2aa198',
+  brightWhite: '#073642'
+};
+
+// Standard "Atom One Dark" terminal palette.
+const THEME_ONE_DARK = {
+  background: '#282c34',
+  foreground: '#abb2bf',
+  cursor: '#abb2bf',
+  cursorAccent: '#282c34',
+  selection: '#3e4451',
+  black: '#282c34',
+  red: '#e06c75',
+  green: '#98c379',
+  yellow: '#e5c07b',
+  blue: '#61afef',
+  magenta: '#c678dd',
+  cyan: '#56b6c2',
+  white: '#abb2bf',
+  brightBlack: '#5c6370',
+  brightRed: '#e06c75',
+  brightGreen: '#98c379',
+  brightYellow: '#e5c07b',
+  brightBlue: '#61afef',
+  brightMagenta: '#c678dd',
+  brightCyan: '#56b6c2',
+  brightWhite: '#ffffff'
+};
+
+// Standard Monokai terminal palette.
+const THEME_MONOKAI = {
+  background: '#272822',
+  foreground: '#f8f8f2',
+  cursor: '#f8f8f2',
+  cursorAccent: '#272822',
+  selection: '#49483e',
+  black: '#272822',
+  red: '#f92672',
+  green: '#a6e22e',
+  yellow: '#f4bf75',
+  blue: '#66d9ef',
+  magenta: '#ae81ff',
+  cyan: '#a1efe4',
+  white: '#f8f8f2',
+  brightBlack: '#75715e',
+  brightRed: '#f92672',
+  brightGreen: '#a6e22e',
+  brightYellow: '#f4bf75',
+  brightBlue: '#66d9ef',
+  brightMagenta: '#ae81ff',
+  brightCyan: '#a1efe4',
+  brightWhite: '#f9f8f5'
+};
+
+const XTERM_THEMES: Record<AppTheme, typeof THEME_DARK> = {
+  dark: THEME_DARK,
+  light: THEME_LIGHT,
+  dracula: THEME_DRACULA,
+  nord: THEME_NORD,
+  'solarized-light': THEME_SOLARIZED_LIGHT,
+  'one-dark': THEME_ONE_DARK,
+  monokai: THEME_MONOKAI
+};
+
 // Best-effort: xterm.js just needs a font-family CSS value, so if the user has
 // any of these Nerd Fonts installed (common among developers, for powerline/
 // prompt glyphs), the terminal picks it up automatically -- no font file is
@@ -124,14 +263,14 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
       const settings = this.state.settings();
       if (this.term) {
         this.term.setOption('fontSize', settings.fontSize);
-        this.term.setOption('theme', settings.theme === 'dark' ? THEME_DARK : THEME_LIGHT);
+        this.term.setOption('theme', XTERM_THEMES[settings.theme]);
         if (this.fitAddon) safeFit(this.fitAddon);
       }
     });
   }
 
   background(): string {
-    return this.state.settings().theme === 'dark' ? THEME_DARK.background : THEME_LIGHT.background;
+    return XTERM_THEMES[this.state.settings().theme].background;
   }
 
   ngAfterViewInit(): void {
@@ -141,7 +280,7 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
     const term = new Terminal({
       fontSize: settings.fontSize,
       fontFamily: TERMINAL_FONT_FAMILY,
-      theme: settings.theme === 'dark' ? THEME_DARK : THEME_LIGHT,
+      theme: XTERM_THEMES[settings.theme],
       cursorBlink: true,
       scrollback: 5000,
       allowProposedApi: true

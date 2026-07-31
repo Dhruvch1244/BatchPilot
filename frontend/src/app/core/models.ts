@@ -30,9 +30,11 @@ export interface ConnectionStatus {
   connectedSince?: number | null;
 }
 
+export type AppTheme = 'dark' | 'light' | 'dracula' | 'nord' | 'solarized-light' | 'one-dark' | 'monokai';
+
 export interface AppSettings {
   fontSize: number;
-  theme: 'dark' | 'light';
+  theme: AppTheme;
   autoReconnect: boolean;
   reconnectIntervalSeconds: number;
   maxReconnectAttempts: number;
