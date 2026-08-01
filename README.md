@@ -220,6 +220,35 @@ The launcher scripts (`packaging/windows/`, `packaging/unix/`) are checked
 into source control and copied verbatim by `release.sh`; edit them there,
 not in a generated `release/` folder.
 
+### Automated releases (CI/CD)
+
+Running `./release.sh` locally is still the way to build one manually, but
+[`.github/workflows/release.yml`](.github/workflows/release.yml) does the same
+thing automatically on every push to `main`:
+
+1. Checks out the pushed commit and runs `release.sh` as-is (same script,
+   same output — nothing release-specific is duplicated in the workflow).
+2. Tags a version from the root `pom.xml`'s `<version>` (e.g. `1.0.0-SNAPSHOT`
+   → `v1.0.0-<run number>`, so every run gets a unique, monotonically
+   increasing tag without hand-maintaining a version file) and publishes a
+   **GitHub Release** with `BatchPilot.zip` attached, plus auto-generated
+   release notes from the commits since the last one.
+3. Records that same release as a new entry at the top of
+   [`RELEASES.md`](RELEASES.md) (linking straight to the download) and
+   commits it back to `main`.
+
+That commit's message ends in `[skip ci]` — GitHub's own convention for "don't
+trigger any workflow for this push" — which is what stops step 3 from
+triggering the workflow again on itself; no custom guard logic needed.
+`workflow_dispatch` is also enabled, so a release can be kicked off by hand
+from the Actions tab without waiting for the next push.
+
+**Note:** the workflow pushes directly to `main` using the default
+`GITHUB_TOKEN` (`permissions: contents: write`). If branch protection on
+`main` requires PRs/reviews, that push will be rejected — either exempt
+`github-actions[bot]` from the restriction, or this step will need to switch
+to opening a small PR instead of pushing directly.
+
 ## Configuration
 
 Backend settings live in `backend/src/main/resources/application.yml`:

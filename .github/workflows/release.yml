@@ -1,0 +1,108 @@
+name: Release
+
+# Runs on every push to main - this repo's workflow is "always keep a PR open
+# against main, merge it when it's ready," so a push to main *is* a shipped
+# change and should produce a release automatically. The job's own commit
+# back to main (updating RELEASES.md) includes "[skip ci]" in its message,
+# which GitHub natively treats as "don't dispatch any workflow for this
+# push" - that's what stops this workflow from triggering itself in a loop,
+# no custom guard condition needed.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Only one release build in flight at a time, and never cancel one mid-push -
+# a cancelled run partway through the "commit RELEASES.md" step could leave
+# main with a release tag/GitHub Release that RELEASES.md never mentions.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # No cache: npm here - there's no committed frontend/package-lock.json
+          # for setup-node to key a cache off of (release.sh runs a plain `npm
+          # install`, not `npm ci`), so requesting the npm cache would just fail
+          # the step outright looking for a lockfile that doesn't exist.
+
+      - name: Build release (frontend + backend + packaging)
+        run: ./release.sh
+
+      - name: Compute release version
+        id: version
+        run: |
+          base="$(grep -m1 '<version>' pom.xml | sed -E 's/.*<version>([^<]*)<\/version>.*/\1/' | sed 's/-SNAPSHOT$//')"
+          tag="v${base}-${{ github.run_number }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "subject=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release with BatchPilot.zip
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: BatchPilot ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: BatchPilot.zip
+
+      - name: Record the release in RELEASES.md
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          DATE: ${{ steps.version.outputs.date }}
+          SHA: ${{ steps.version.outputs.sha }}
+          SUBJECT: ${{ steps.version.outputs.subject }}
+          REPO: ${{ github.repository }}
+        run: |
+          entry_file="$(mktemp)"
+          {
+            echo ""
+            echo "## $TAG — $DATE"
+            echo ""
+            echo "- $SUBJECT ($SHA)"
+            echo "- [Download BatchPilot.zip](https://github.com/$REPO/releases/download/$TAG/BatchPilot.zip)"
+          } > "$entry_file"
+
+          # Newest release first: every run inserts its entry directly below the
+          # stable "RELEASES_START" marker comment rather than appending at the
+          # bottom or counting lines (fragile against future intro-paragraph
+          # edits) - each new insertion lands above all previously-inserted ones.
+          awk -v entry="$entry_file" '
+            { print }
+            /RELEASES_START/ { while ((getline line < entry) > 0) print line }
+          ' RELEASES.md > RELEASES.md.new
+          mv RELEASES.md.new RELEASES.md
+
+      - name: Commit RELEASES.md back to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add RELEASES.md
+          if git diff --cached --quiet; then
+            echo "RELEASES.md unchanged, nothing to commit."
+          else
+            git commit -m "Record release ${{ steps.version.outputs.tag }} [skip ci]"
+            git push origin HEAD:main
+          fi
