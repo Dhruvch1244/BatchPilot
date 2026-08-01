@@ -10,7 +10,11 @@ const DEFAULT_SETTINGS: AppSettings = {
   reconnectIntervalSeconds: 5,
   maxReconnectAttempts: 5,
   maxTabs: 10,
-  maxUploadSizeMb: 2048
+  maxUploadSizeMb: 2048,
+  uiFontFamily: 'system',
+  terminalFontFamily: 'auto',
+  uiFontSizePx: 14,
+  uiLineHeight: 1.5
 };
 
 /**

@@ -35,9 +35,40 @@ export interface ConnectionStatus {
   connectedSince?: number | null;
 }
 
-export type AppTheme = 'dark' | 'light' | 'dracula' | 'nord' | 'solarized-light' | 'one-dark' | 'monokai';
+export type AppTheme =
+  | 'dark'
+  | 'light'
+  | 'dracula'
+  | 'nord'
+  | 'solarized-light'
+  | 'one-dark'
+  | 'monokai'
+  // ---- Neovim-inspired themes ----
+  | 'catppuccin-mocha'
+  | 'catppuccin-latte'
+  | 'tokyonight'
+  | 'tokyonight-storm'
+  | 'tokyonight-day'
+  | 'gruvbox-dark'
+  | 'gruvbox-light'
+  | 'kanagawa'
+  | 'rose-pine'
+  | 'rose-pine-dawn'
+  | 'everforest-dark'
+  | 'everforest-light'
+  | 'nightfox'
+  | 'duskfox'
+  | 'ayu-dark'
+  | 'ayu-light'
+  | 'material-ocean'
+  | 'github-dark'
+  | 'github-light'
+  | 'synthwave84'
+  | 'sonokai'
+  | 'solarized-dark';
 
 export interface AppSettings {
+  /** Terminal (xterm.js) font size in px. */
   fontSize: number;
   theme: AppTheme;
   autoReconnect: boolean;
@@ -45,6 +76,11 @@ export interface AppSettings {
   maxReconnectAttempts: number;
   maxTabs: number;
   maxUploadSizeMb: number;
+  /** Ids into font-catalog.ts's UI_FONT_OPTIONS/TERMINAL_FONT_OPTIONS. */
+  uiFontFamily: string;
+  terminalFontFamily: string;
+  uiFontSizePx: number;
+  uiLineHeight: number;
 }
 
 export interface FileEntry {

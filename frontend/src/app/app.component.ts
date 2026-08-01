@@ -1,6 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, effect } from '@angular/core';
 import { AppStateService } from './core/app-state.service';
 import { Environment, Tab, TabType } from './core/models';
+import { UI_FONT_OPTIONS, fontStackFor } from './core/font-catalog';
 import { ToolbarComponent } from './layout/toolbar.component';
 import { SidebarComponent } from './layout/sidebar.component';
 import { StatusBarComponent } from './layout/status-bar.component';
@@ -85,7 +86,19 @@ export class AppComponent implements OnInit {
   readonly asciiLogo = ASCII_LOGO;
   readonly features = FEATURES;
 
-  constructor(public state: AppStateService) {}
+  constructor(public state: AppStateService) {
+    // Typography is applied globally via CSS custom properties on :root, not scoped to any
+    // one component's template - the base `body` rule in styles.css reads these with
+    // today's previous hardcoded values as the fallback, so nothing changes for a settings
+    // object saved before these fields existed (uiFontFamily defaults to 'system' either way).
+    effect(() => {
+      const settings = this.state.settings();
+      const root = document.documentElement.style;
+      root.setProperty('--font-ui', fontStackFor(UI_FONT_OPTIONS, settings.uiFontFamily));
+      root.setProperty('--font-size-ui', `${settings.uiFontSizePx}px`);
+      root.setProperty('--line-height-ui', `${settings.uiLineHeight}`);
+    });
+  }
 
   ngOnInit(): void {
     this.state.init();
