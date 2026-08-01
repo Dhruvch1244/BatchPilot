@@ -11,6 +11,7 @@ import {
   FileEntry,
   QuickExecuteResult,
   S3CopyRequest,
+  S3ListResult,
   StageSearchHistoryEntry,
   StageSearchResult,
   YarnActionResponse,
@@ -184,6 +185,54 @@ export class ApiService {
 
   runS3Transfer(environmentId: string, request: S3CopyRequest): Observable<QuickExecuteResult> {
     return this.http.post<QuickExecuteResult>(`/api/environments/${environmentId}/s3-transfer`, request);
+  }
+
+  // ---------- S3 Explorer ----------
+  listS3(
+    environmentId: string,
+    bucket: string,
+    prefix: string,
+    continuationToken?: string,
+    pageSize?: number
+  ): Observable<S3ListResult> {
+    let params = new HttpParams().set('prefix', prefix);
+    if (bucket) params = params.set('bucket', bucket);
+    if (continuationToken) params = params.set('continuationToken', continuationToken);
+    if (pageSize) params = params.set('pageSize', pageSize);
+    return this.http.get<S3ListResult>(`/api/environments/${environmentId}/s3-explorer`, { params });
+  }
+
+  s3DownloadUrl(environmentId: string, bucket: string, key: string): string {
+    let params = new HttpParams().set('key', key);
+    if (bucket) params = params.set('bucket', bucket);
+    return `/api/environments/${environmentId}/s3-explorer/download?${params.toString()}`;
+  }
+
+  /** Emits UploadProgress events as the transfer proceeds, ending with `done: true` and the server response. */
+  uploadS3(environmentId: string, bucket: string, prefix: string, files: File[]): Observable<UploadProgress> {
+    const form = new FormData();
+    if (bucket) form.append('bucket', bucket);
+    form.append('prefix', prefix);
+    files.forEach((file) => form.append('files', file));
+
+    const request = new HttpRequest('POST', `/api/environments/${environmentId}/s3-explorer/upload`, form, {
+      reportProgress: true
+    });
+
+    return new Observable<UploadProgress>((subscriber) => {
+      const sub = this.http.request<Record<string, string>>(request).subscribe({
+        next: (event: HttpEvent<Record<string, string>>) => {
+          if (event.type === HttpEventType.UploadProgress && event.total) {
+            subscriber.next({ loaded: event.loaded, total: event.total, done: false });
+          } else if (event.type === HttpEventType.Response) {
+            subscriber.next({ loaded: 1, total: 1, done: true, response: event.body ?? undefined });
+            subscriber.complete();
+          }
+        },
+        error: (err) => subscriber.error(err)
+      });
+      return () => sub.unsubscribe();
+    });
   }
 
   // ---------- File stage tracker ----------

@@ -13,6 +13,7 @@ import { EnvironmentFormModalComponent } from './environments/environment-form-m
 import { ApplicationsPanelComponent } from './applications/applications-panel.component';
 import { StageTrackerPanelComponent } from './stage-tracker/stage-tracker-panel.component';
 import { S3TransferPanelComponent } from './s3-transfer/s3-transfer-panel.component';
+import { S3ExplorerPanelComponent } from './s3-explorer/s3-explorer-panel.component';
 import { IconComponent, IconName } from './shared/icon.component';
 
 export type EnvironmentFormState = { mode: 'create' } | { mode: 'edit'; environment: Environment } | null;
@@ -36,7 +37,8 @@ const FEATURES: FeatureCard[] = [
   { type: 'quick-execute', icon: 'play', title: 'Quick Execute', description: 'Run a one-off command without opening a terminal.' },
   { type: 'applications', icon: 'activity', title: 'Applications', description: 'Live YARN application list, grouped and searchable.' },
   { type: 'stage-tracker', icon: 'file-search', title: 'Stage Tracker', description: 'Follow a file through the pipeline, stage by stage.' },
-  { type: 's3-transfer', icon: 'download', title: 'S3 Transfer', description: 'Stage a file to S3 with a generated aws s3 cp command.' }
+  { type: 's3-transfer', icon: 'download', title: 'S3 Transfer', description: 'Stage a file to S3 with a generated aws s3 cp command.' },
+  { type: 's3-explorer', icon: 'cloud', title: 'S3 Explorer', description: 'Browse, upload, and download S3 objects, paginated for huge buckets.' }
 ];
 
 // figlet "slant" rendering of "BatchPilot" - colored via a CSS gradient
@@ -65,6 +67,7 @@ const ASCII_LOGO = [
     ApplicationsPanelComponent,
     StageTrackerPanelComponent,
     S3TransferPanelComponent,
+    S3ExplorerPanelComponent,
     IconComponent
   ],
   templateUrl: './app.component.html'
@@ -112,7 +115,8 @@ export class AppComponent implements OnInit {
     files: (env, n) => `${env?.name ?? 'Files'} — Explorer${n > 1 ? ' #' + n : ''}`,
     applications: (env, n) => `${env?.name ?? 'Applications'} — YARN${n > 1 ? ' #' + n : ''}`,
     'stage-tracker': (env, n) => `${env?.name ?? 'Stage Tracker'} — Stages${n > 1 ? ' #' + n : ''}`,
-    's3-transfer': (env, n) => `${env?.name ?? 'S3 Transfer'} — Staging${n > 1 ? ' #' + n : ''}`
+    's3-transfer': (env, n) => `${env?.name ?? 'S3 Transfer'} — Staging${n > 1 ? ' #' + n : ''}`,
+    's3-explorer': (env, n) => `${env?.name ?? 'S3 Explorer'} — Bucket${n > 1 ? ' #' + n : ''}`
   };
 
   /** Clicking a toolbar button focuses that type's existing tab for this environment if
@@ -137,6 +141,10 @@ export class AppComponent implements OnInit {
 
   openS3TransferTab(environmentId: string): void {
     this.openOrFocus('s3-transfer', environmentId);
+  }
+
+  openS3ExplorerTab(environmentId: string): void {
+    this.openOrFocus('s3-explorer', environmentId);
   }
 
   private openOrFocus(type: TabType, environmentId: string): void {
@@ -225,6 +233,15 @@ export class AppComponent implements OnInit {
     this.renameTab(tabId, `${env?.name ?? 'Stage Tracker'} — ${this.withOrdinalSuffix(tab, query.trim())}`);
   }
 
+  /** Same idea as onFilesPathChange, but for whatever bucket/prefix an S3 Explorer tab is
+   * currently browsing. */
+  onS3ExplorerLocationChange(tabId: string, location: string): void {
+    const tab = this.tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+    const env = this.state.environments().find((e) => e.id === tab.environmentId);
+    this.renameTab(tabId, `${env?.name ?? 'S3 Explorer'} — ${this.withOrdinalSuffix(tab, location)}`);
+  }
+
   closeTab(id: string): void {
     const next = this.tabs.filter((t) => t.id !== id);
     if (this.activeTabId === id) {
@@ -260,6 +277,11 @@ export class AppComponent implements OnInit {
   openS3TransferForSelected(): void {
     const envId = this.state.selectedEnvironmentId();
     if (envId) this.openS3TransferTab(envId);
+  }
+
+  openS3ExplorerForSelected(): void {
+    const envId = this.state.selectedEnvironmentId();
+    if (envId) this.openS3ExplorerTab(envId);
   }
 
   openCreateForm(): void {
