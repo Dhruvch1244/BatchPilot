@@ -237,12 +237,39 @@ limits) are editable from the Settings dialog in the UI and persisted to
 
 ### Theme palette
 
-Both the light and dark themes are built around Fidelity Investments' brand
-colors: deep green `#006044` (primary accent), secondary olive-green `#76a923`
-(status/success family), and muted gold `#af8a49` (warnings) — tuned per shade
-for contrast rather than used verbatim everywhere. See the CSS custom
-properties under `.theme-light` / `.theme-dark` in
+Both the original light and dark themes are built around Fidelity Investments'
+brand colors: deep green `#006044` (primary accent), secondary olive-green
+`#76a923` (status/success family), and muted gold `#af8a49` (warnings) — tuned
+per shade for contrast rather than used verbatim everywhere. See the CSS
+custom properties under `.theme-light` / `.theme-dark` in
 `frontend/src/styles.css` to adjust.
+
+29 themes are selectable from Settings → Appearance in total: those two plus
+27 more, including 22 modeled on real, popular neovim colorschemes (exact hex
+values sourced from each project's own published palette) — Catppuccin
+Mocha/Latte, Tokyo Night/Storm/Day, Gruvbox Dark/Light, Kanagawa, Rosé
+Pine/Dawn, Everforest Dark/Light, Nightfox/Duskfox, Ayu Dark/Light, Material
+Ocean, GitHub Dark/Light, SynthWave '84, Sonokai, and Solarized Dark (joining
+the existing Solarized Light), alongside Dracula/Nord/One Dark/Monokai from an
+earlier round. Each theme sets the same variable set as `.theme-light`/
+`.theme-dark` — colors plus `--radius-*`/`--shadow-*`/`--letter-spacing-*`/
+`--heading-weight` — so every component that only ever reads `var(--*)` themes
+for free, but with a genuinely distinct *structural* personality per theme
+rather than one uniform look recolored: Gruvbox and SynthWave '84 go sharp,
+boxy, and hard-shadowed for an authentic "riced TUI" feel; Ayu and GitHub stay
+flat and minimal; Catppuccin, Rosé Pine, and Kanagawa stay soft and rounded.
+The terminal panel gets a matching hand-tuned ANSI 16-color palette per theme
+too (`XTERM_THEMES` in `terminal-tab.component.ts`), so `ls` colors, prompts,
+etc. read as part of the same theme rather than a generic default.
+
+Settings → Typography adds independent UI font, terminal font, UI font size,
+and UI line-height controls (`core/font-catalog.ts` for the curated font
+lists) — including a few monospace UI font options (JetBrains Mono, Fira
+Code, Iosevka, ...) for browsing the whole app chrome in a genuinely
+terminal-native typeface, not just the terminal panel. Fonts are plain CSS
+font-family stacks with fallbacks, not bundled webfont files, so a chosen
+font renders only if it's actually installed on the machine BatchPilot is
+opened on.
 
 ## YARN applications & the file stage tracker
 

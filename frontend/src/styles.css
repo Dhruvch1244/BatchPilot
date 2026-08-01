@@ -8,11 +8,14 @@ html, body, app-root {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
-    "Segoe UI", "Helvetica Neue", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 13.5px;
-  line-height: 1.5;
-  letter-spacing: -0.005em;
+  /* --font-ui/--font-size-ui/--line-height-ui are set on :root at runtime from Settings ->
+     Typography (see AppComponent); the literal stack/values here are just what renders
+     before that JS runs, and the permanent fallback if it never does. */
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text",
+    "Segoe UI", "Helvetica Neue", Roboto, Helvetica, Arial, sans-serif);
+  font-size: var(--font-size-ui, 13.5px);
+  line-height: var(--line-height-ui, 1.5);
+  letter-spacing: var(--letter-spacing-ui, -0.005em);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -20,8 +23,8 @@ body {
 }
 
 h1, h2, h3 {
-  letter-spacing: -0.015em;
-  font-weight: 600;
+  letter-spacing: var(--letter-spacing-heading, -0.015em);
+  font-weight: var(--heading-weight, 600);
 }
 
 button {
@@ -265,6 +268,715 @@ input, select, textarea {
   --overlay: rgba(10, 10, 8, 0.6);
   --scrollbar-thumb: rgba(248, 248, 242, 0.16);
   --scrollbar-thumb-hover: rgba(248, 248, 242, 0.28);
+}
+
+/* ---------- Neovim-inspired themes ----------
+   22 more themes modeled on real, popular neovim colorschemes (exact hex values sourced
+   from each project's own published palette - see terminal-tab.component.ts's XTERM_THEMES
+   for the matching terminal ANSI palettes and citations). Beyond color, each theme also
+   tunes the --radius, --shadow, --letter-spacing, and --heading-weight variables for a
+   genuinely distinct structural feel per the source colorscheme's own personality - some go sharp/boxy for an
+   authentic terminal-UI ("TUI") look, others stay soft, rather than one uniform "TUI mode"
+   layered on top of all of them. */
+
+/* Catppuccin Mocha - the most-used pastel neovim theme; soft, cozy, generously rounded. */
+.theme-catppuccin-mocha {
+  color-scheme: dark;
+  --bg-app: #1e1e2e;
+  --bg-panel: #24273a;
+  --bg-panel-alt: #292c3c;
+  --bg-hover: #313244;
+  --bg-selected: #45475a;
+  --bg-selected-text: #f5e0dc;
+  --border: rgba(205, 214, 244, 0.08);
+  --border-strong: rgba(205, 214, 244, 0.15);
+  --text: #cdd6f4;
+  --text-dim: #a6adc8;
+  --accent: #cba6f7;
+  --accent-hover: #d5b8f8;
+  --accent-contrast: #1e1e2e;
+  --success: #a6e3a1;
+  --error: #f38ba8;
+  --warning: #f9e2af;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 12px 32px rgba(17, 17, 27, 0.55), 0 2px 8px rgba(17, 17, 27, 0.4);
+  --shadow-lg: 0 26px 64px rgba(17, 17, 27, 0.6), 0 4px 14px rgba(17, 17, 27, 0.45);
+  --overlay: rgba(17, 17, 27, 0.6);
+  --scrollbar-thumb: rgba(205, 214, 244, 0.16);
+  --scrollbar-thumb-hover: rgba(205, 214, 244, 0.28);
+}
+
+/* Catppuccin Latte - the official light companion; same soft, rounded personality. */
+.theme-catppuccin-latte {
+  color-scheme: light;
+  --bg-app: #eff1f5;
+  --bg-panel: #e6e9ef;
+  --bg-panel-alt: #dce0e8;
+  --bg-hover: #ccd0da;
+  --bg-selected: #dce5fa;
+  --bg-selected-text: #1e2030;
+  --border: rgba(76, 79, 105, 0.1);
+  --border-strong: rgba(76, 79, 105, 0.18);
+  --text: #4c4f69;
+  --text-dim: #6c6f85;
+  --accent: #8839ef;
+  --accent-hover: #7327d6;
+  --accent-contrast: #ffffff;
+  --success: #40a02b;
+  --error: #d20f39;
+  --warning: #8a6d10;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --shadow-sm: 0 1px 2px rgba(76, 79, 105, 0.06);
+  --shadow-md: 0 16px 36px rgba(76, 79, 105, 0.12), 0 3px 8px rgba(76, 79, 105, 0.07);
+  --shadow-lg: 0 30px 70px rgba(76, 79, 105, 0.18), 0 6px 16px rgba(76, 79, 105, 0.09);
+  --overlay: rgba(76, 79, 105, 0.28);
+  --scrollbar-thumb: rgba(76, 79, 105, 0.16);
+  --scrollbar-thumb-hover: rgba(76, 79, 105, 0.26);
+}
+
+/* Tokyo Night - one of the most popular neovim themes of the last few years; cool blues
+   with a faint glow, medium rounding. */
+.theme-tokyonight {
+  color-scheme: dark;
+  --bg-app: #1a1b26;
+  --bg-panel: #1f2335;
+  --bg-panel-alt: #24283b;
+  --bg-hover: #292e42;
+  --bg-selected: #283457;
+  --bg-selected-text: #c0caf5;
+  --border: rgba(169, 177, 214, 0.08);
+  --border-strong: rgba(169, 177, 214, 0.16);
+  --text: #c0caf5;
+  --text-dim: #737aa2;
+  --accent: #7aa2f7;
+  --accent-hover: #89b4fa;
+  --accent-contrast: #1a1b26;
+  --success: #9ece6a;
+  --error: #f7768e;
+  --warning: #e0af68;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 13px;
+  --radius-xl: 18px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 12px 32px rgba(5, 6, 12, 0.55), 0 0 24px rgba(122, 162, 247, 0.08);
+  --shadow-lg: 0 26px 64px rgba(5, 6, 12, 0.6), 0 0 36px rgba(122, 162, 247, 0.1);
+  --overlay: rgba(5, 6, 12, 0.6);
+  --scrollbar-thumb: rgba(169, 177, 214, 0.16);
+  --scrollbar-thumb-hover: rgba(169, 177, 214, 0.28);
+}
+
+/* Tokyo Night Storm - the slightly-lighter "storm" background variant, same accents. */
+.theme-tokyonight-storm {
+  color-scheme: dark;
+  --bg-app: #24283b;
+  --bg-panel: #292e42;
+  --bg-panel-alt: #2f3449;
+  --bg-hover: #363c52;
+  --bg-selected: #364a82;
+  --bg-selected-text: #c0caf5;
+  --border: rgba(169, 177, 214, 0.09);
+  --border-strong: rgba(169, 177, 214, 0.17);
+  --text: #c0caf5;
+  --text-dim: #7982a9;
+  --accent: #7aa2f7;
+  --accent-hover: #89b4fa;
+  --accent-contrast: #24283b;
+  --success: #9ece6a;
+  --error: #f7768e;
+  --warning: #e0af68;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 13px;
+  --radius-xl: 18px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 12px 32px rgba(9, 11, 19, 0.55), 0 0 24px rgba(122, 162, 247, 0.08);
+  --shadow-lg: 0 26px 64px rgba(9, 11, 19, 0.6), 0 0 36px rgba(122, 162, 247, 0.1);
+  --overlay: rgba(9, 11, 19, 0.6);
+  --scrollbar-thumb: rgba(169, 177, 214, 0.17);
+  --scrollbar-thumb-hover: rgba(169, 177, 214, 0.29);
+}
+
+/* Tokyo Night Day - the official light variant. */
+.theme-tokyonight-day {
+  color-scheme: light;
+  --bg-app: #e1e2e7;
+  --bg-panel: #d5d6db;
+  --bg-panel-alt: #cbccd1;
+  --bg-hover: #c4c5cb;
+  --bg-selected: #b6bfe2;
+  --bg-selected-text: #343b58;
+  --border: rgba(52, 59, 88, 0.1);
+  --border-strong: rgba(52, 59, 88, 0.18);
+  --text: #3760bf;
+  --text-dim: #6172b0;
+  --accent: #2e7de9;
+  --accent-hover: #1a5fc4;
+  --accent-contrast: #ffffff;
+  --success: #587539;
+  --error: #f52a65;
+  --warning: #8c6c3e;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 13px;
+  --radius-xl: 18px;
+  --shadow-sm: 0 1px 2px rgba(52, 59, 88, 0.06);
+  --shadow-md: 0 16px 36px rgba(52, 59, 88, 0.12), 0 0 20px rgba(46, 125, 233, 0.06);
+  --shadow-lg: 0 30px 70px rgba(52, 59, 88, 0.18), 0 0 30px rgba(46, 125, 233, 0.08);
+  --overlay: rgba(52, 59, 88, 0.26);
+  --scrollbar-thumb: rgba(52, 59, 88, 0.16);
+  --scrollbar-thumb-hover: rgba(52, 59, 88, 0.26);
+}
+
+/* Gruvbox Dark - the archetypal warm "retro terminal" theme; sharp corners, hard offset
+   shadows instead of soft blur, bold headings - the boxiest/most authentically-TUI theme
+   in the set next to Synthwave84. */
+.theme-gruvbox-dark {
+  color-scheme: dark;
+  --bg-app: #282828;
+  --bg-panel: #2d2d2d;
+  --bg-panel-alt: #323232;
+  --bg-hover: #3c3836;
+  --bg-selected: #504945;
+  --bg-selected-text: #fbf1c7;
+  --border: rgba(235, 219, 178, 0.12);
+  --border-strong: rgba(235, 219, 178, 0.22);
+  --text: #ebdbb2;
+  --text-dim: #a89984;
+  --accent: #fe8019;
+  --accent-hover: #fabd2f;
+  --accent-contrast: #1d2021;
+  --success: #b8bb26;
+  --error: #fb4934;
+  --warning: #fabd2f;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --letter-spacing-heading: 0;
+  --heading-weight: 700;
+  --shadow-sm: 1px 1px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 3px 3px 0 rgba(0, 0, 0, 0.45);
+  --shadow-lg: 5px 5px 0 rgba(0, 0, 0, 0.5);
+  --overlay: rgba(20, 19, 18, 0.65);
+  --scrollbar-thumb: rgba(235, 219, 178, 0.2);
+  --scrollbar-thumb-hover: rgba(235, 219, 178, 0.32);
+}
+
+/* Gruvbox Light - same retro/boxy structure, warm cream surfaces. */
+.theme-gruvbox-light {
+  color-scheme: light;
+  --bg-app: #fbf1c7;
+  --bg-panel: #f7ecc6;
+  --bg-panel-alt: #f2e5b9;
+  --bg-hover: #ebdbb2;
+  --bg-selected: #d5c4a1;
+  --bg-selected-text: #282828;
+  --border: rgba(60, 56, 54, 0.14);
+  --border-strong: rgba(60, 56, 54, 0.24);
+  --text: #3c3836;
+  --text-dim: #7c6f64;
+  --accent: #af3a03;
+  --accent-hover: #9d0006;
+  --accent-contrast: #fbf1c7;
+  --success: #79740e;
+  --error: #9d0006;
+  --warning: #b57614;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --letter-spacing-heading: 0;
+  --heading-weight: 700;
+  --shadow-sm: 1px 1px 0 rgba(60, 56, 54, 0.18);
+  --shadow-md: 3px 3px 0 rgba(60, 56, 54, 0.22);
+  --shadow-lg: 5px 5px 0 rgba(60, 56, 54, 0.26);
+  --overlay: rgba(60, 56, 54, 0.24);
+  --scrollbar-thumb: rgba(60, 56, 54, 0.2);
+  --scrollbar-thumb-hover: rgba(60, 56, 54, 0.32);
+}
+
+/* Kanagawa - inspired by Katsushika Hokusai's "The Great Wave"; soft ink-wash palette,
+   soft rounding, and a near-flat "paper" shadow instead of heavy elevation. */
+.theme-kanagawa {
+  color-scheme: dark;
+  --bg-app: #1f1f28;
+  --bg-panel: #223249;
+  --bg-panel-alt: #2a2a37;
+  --bg-hover: #363646;
+  --bg-selected: #2d4f67;
+  --bg-selected-text: #dcd7ba;
+  --border: rgba(220, 215, 186, 0.08);
+  --border-strong: rgba(220, 215, 186, 0.14);
+  --text: #dcd7ba;
+  --text-dim: #a6a69c;
+  --accent: #7e9cd8;
+  --accent-hover: #7fb4ca;
+  --accent-contrast: #1f1f28;
+  --success: #98bb6c;
+  --error: #c34043;
+  --warning: #dca561;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 19px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 10px 26px rgba(9, 6, 24, 0.4), 0 2px 6px rgba(9, 6, 24, 0.28);
+  --shadow-lg: 0 22px 50px rgba(9, 6, 24, 0.45), 0 4px 12px rgba(9, 6, 24, 0.3);
+  --overlay: rgba(9, 6, 24, 0.5);
+  --scrollbar-thumb: rgba(220, 215, 186, 0.14);
+  --scrollbar-thumb-hover: rgba(220, 215, 186, 0.24);
+}
+
+/* Rosé Pine - "all natural pine, faux fur and a bit of soho vibes"; very soft, muted,
+   minimal shadow, generous rounding. */
+.theme-rose-pine {
+  color-scheme: dark;
+  --bg-app: #191724;
+  --bg-panel: #1f1d2e;
+  --bg-panel-alt: #26233a;
+  --bg-hover: #2a2740;
+  --bg-selected: #403d52;
+  --bg-selected-text: #e0def4;
+  --border: rgba(224, 222, 244, 0.07);
+  --border-strong: rgba(224, 222, 244, 0.13);
+  --text: #e0def4;
+  --text-dim: #908caa;
+  --accent: #c4a7e7;
+  --accent-hover: #ccb3ea;
+  --accent-contrast: #191724;
+  --success: #9ccfd8;
+  --error: #eb6f92;
+  --warning: #f6c177;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 12px 30px rgba(14, 12, 22, 0.4), 0 2px 8px rgba(14, 12, 22, 0.25);
+  --shadow-lg: 0 24px 56px rgba(14, 12, 22, 0.45), 0 4px 14px rgba(14, 12, 22, 0.28);
+  --overlay: rgba(14, 12, 22, 0.5);
+  --scrollbar-thumb: rgba(224, 222, 244, 0.14);
+  --scrollbar-thumb-hover: rgba(224, 222, 244, 0.24);
+}
+
+/* Rosé Pine Dawn - the official light variant; same soft, muted structural feel. */
+.theme-rose-pine-dawn {
+  color-scheme: light;
+  --bg-app: #faf4ed;
+  --bg-panel: #fffaf3;
+  --bg-panel-alt: #f2e9e1;
+  --bg-hover: #ede4da;
+  --bg-selected: #dfdad9;
+  --bg-selected-text: #575279;
+  --border: rgba(87, 82, 121, 0.09);
+  --border-strong: rgba(87, 82, 121, 0.16);
+  --text: #575279;
+  --text-dim: #797593;
+  --accent: #907aa9;
+  --accent-hover: #7d6795;
+  --accent-contrast: #ffffff;
+  --success: #286983;
+  --error: #b4637a;
+  --warning: #97742e;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --shadow-sm: 0 1px 2px rgba(87, 82, 121, 0.06);
+  --shadow-md: 0 16px 34px rgba(87, 82, 121, 0.1), 0 3px 8px rgba(87, 82, 121, 0.06);
+  --shadow-lg: 0 28px 64px rgba(87, 82, 121, 0.15), 0 6px 14px rgba(87, 82, 121, 0.08);
+  --overlay: rgba(87, 82, 121, 0.24);
+  --scrollbar-thumb: rgba(87, 82, 121, 0.15);
+  --scrollbar-thumb-hover: rgba(87, 82, 121, 0.25);
+}
+
+/* Everforest Dark - "comfortable & pleasant", nature-inspired greens; medium-soft. */
+.theme-everforest-dark {
+  color-scheme: dark;
+  --bg-app: #2d353b;
+  --bg-panel: #333c43;
+  --bg-panel-alt: #3a444a;
+  --bg-hover: #414b50;
+  --bg-selected: #543a48;
+  --bg-selected-text: #d3c6aa;
+  --border: rgba(211, 198, 170, 0.08);
+  --border-strong: rgba(211, 198, 170, 0.15);
+  --text: #d3c6aa;
+  --text-dim: #859289;
+  --accent: #a7c080;
+  --accent-hover: #b3cc94;
+  --accent-contrast: #2d353b;
+  --success: #a7c080;
+  --error: #e67e80;
+  --warning: #dbbc7f;
+  --radius-sm: 7px;
+  --radius-md: 11px;
+  --radius-lg: 15px;
+  --radius-xl: 20px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 12px 30px rgba(20, 24, 27, 0.4), 0 2px 8px rgba(20, 24, 27, 0.28);
+  --shadow-lg: 0 24px 56px rgba(20, 24, 27, 0.45), 0 4px 14px rgba(20, 24, 27, 0.3);
+  --overlay: rgba(20, 24, 27, 0.5);
+  --scrollbar-thumb: rgba(211, 198, 170, 0.15);
+  --scrollbar-thumb-hover: rgba(211, 198, 170, 0.25);
+}
+
+/* Everforest Light - same nature palette, "medium" contrast cream background. */
+.theme-everforest-light {
+  color-scheme: light;
+  --bg-app: #fdf6e3;
+  --bg-panel: #f8f0dc;
+  --bg-panel-alt: #f4ebd4;
+  --bg-hover: #efe4c8;
+  --bg-selected: #e6e2cc;
+  --bg-selected-text: #2f3d44;
+  --border: rgba(92, 106, 114, 0.1);
+  --border-strong: rgba(92, 106, 114, 0.18);
+  --text: #5c6a72;
+  --text-dim: #829181;
+  --accent: #8da101;
+  --accent-hover: #768d21;
+  --accent-contrast: #fdf6e3;
+  --success: #8da101;
+  --error: #f85552;
+  --warning: #b58900;
+  --radius-sm: 7px;
+  --radius-md: 11px;
+  --radius-lg: 15px;
+  --radius-xl: 20px;
+  --shadow-sm: 0 1px 2px rgba(92, 106, 114, 0.07);
+  --shadow-md: 0 16px 34px rgba(92, 106, 114, 0.12), 0 3px 8px rgba(92, 106, 114, 0.07);
+  --shadow-lg: 0 28px 64px rgba(92, 106, 114, 0.16), 0 6px 14px rgba(92, 106, 114, 0.09);
+  --overlay: rgba(92, 106, 114, 0.26);
+  --scrollbar-thumb: rgba(92, 106, 114, 0.16);
+  --scrollbar-thumb-hover: rgba(92, 106, 114, 0.26);
+}
+
+/* Nightfox - a highly-customizable, muted-blue neovim theme; medium rounding. */
+.theme-nightfox {
+  color-scheme: dark;
+  --bg-app: #192330;
+  --bg-panel: #1e2836;
+  --bg-panel-alt: #212d3e;
+  --bg-hover: #29394f;
+  --bg-selected: #2b3b51;
+  --bg-selected-text: #cdcecf;
+  --border: rgba(223, 223, 224, 0.08);
+  --border-strong: rgba(223, 223, 224, 0.15);
+  --text: #cdcecf;
+  --text-dim: #71839b;
+  --accent: #719cd6;
+  --accent-hover: #86abdc;
+  --accent-contrast: #131a24;
+  --success: #81b29a;
+  --error: #c94f6d;
+  --warning: #dbc074;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 13px;
+  --radius-xl: 18px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 12px 30px rgba(8, 11, 16, 0.5), 0 2px 8px rgba(8, 11, 16, 0.35);
+  --shadow-lg: 0 24px 56px rgba(8, 11, 16, 0.55), 0 4px 14px rgba(8, 11, 16, 0.38);
+  --overlay: rgba(8, 11, 16, 0.55);
+  --scrollbar-thumb: rgba(223, 223, 224, 0.15);
+  --scrollbar-thumb-hover: rgba(223, 223, 224, 0.26);
+}
+
+/* Duskfox - Nightfox's dustier purple/rose variant. */
+.theme-duskfox {
+  color-scheme: dark;
+  --bg-app: #232136;
+  --bg-panel: #29273f;
+  --bg-panel-alt: #2f2c47;
+  --bg-hover: #383455;
+  --bg-selected: #393552;
+  --bg-selected-text: #e0def4;
+  --border: rgba(224, 222, 244, 0.08);
+  --border-strong: rgba(224, 222, 244, 0.15);
+  --text: #e0def4;
+  --text-dim: #918da3;
+  --accent: #c4a7e7;
+  --accent-hover: #d0b9ec;
+  --accent-contrast: #1b1a2c;
+  --success: #a3be8c;
+  --error: #eb6f92;
+  --warning: #f6c177;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 13px;
+  --radius-xl: 18px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 12px 30px rgba(15, 13, 25, 0.5), 0 2px 8px rgba(15, 13, 25, 0.35);
+  --shadow-lg: 0 24px 56px rgba(15, 13, 25, 0.55), 0 4px 14px rgba(15, 13, 25, 0.38);
+  --overlay: rgba(15, 13, 25, 0.55);
+  --scrollbar-thumb: rgba(224, 222, 244, 0.15);
+  --scrollbar-thumb-hover: rgba(224, 222, 244, 0.26);
+}
+
+/* Ayu Dark - clean, flat, minimal design ethos; near-zero radius, crisp thin borders,
+   no heavy elevation shadows (Ayu's whole point is a flat, unfussy look). */
+.theme-ayu-dark {
+  color-scheme: dark;
+  --bg-app: #0a0e14;
+  --bg-panel: #0d1219;
+  --bg-panel-alt: #131721;
+  --bg-hover: #1a1f29;
+  --bg-selected: #273747;
+  --bg-selected-text: #e6b450;
+  --border: rgba(179, 177, 173, 0.1);
+  --border-strong: rgba(179, 177, 173, 0.2);
+  --text: #b3b1ad;
+  --text-dim: #726e6a;
+  --accent: #e6b450;
+  --accent-hover: #ffcc66;
+  --accent-contrast: #0a0e14;
+  --success: #91b362;
+  --error: #ea6c73;
+  --warning: #f9af4f;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 22px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.55);
+  --overlay: rgba(1, 2, 5, 0.65);
+  --scrollbar-thumb: rgba(179, 177, 173, 0.18);
+  --scrollbar-thumb-hover: rgba(179, 177, 173, 0.3);
+}
+
+/* Ayu Light - same flat/minimal structure, warm off-white surfaces. */
+.theme-ayu-light {
+  color-scheme: light;
+  --bg-app: #fafafa;
+  --bg-panel: #f3f4f5;
+  --bg-panel-alt: #eaebec;
+  --bg-hover: #e2e3e4;
+  --bg-selected: #d1e4f7;
+  --bg-selected-text: #274a5c;
+  --border: rgba(92, 97, 102, 0.12);
+  --border-strong: rgba(92, 97, 102, 0.22);
+  --text: #5c6166;
+  --text-dim: #828c99;
+  --accent: #ff9940;
+  --accent-hover: #fa8d3e;
+  --accent-contrast: #ffffff;
+  --success: #86b300;
+  --error: #f51818;
+  --warning: #a67a2e;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --shadow-sm: 0 1px 2px rgba(92, 97, 102, 0.08);
+  --shadow-md: 0 12px 28px rgba(92, 97, 102, 0.14);
+  --shadow-lg: 0 24px 52px rgba(92, 97, 102, 0.18);
+  --overlay: rgba(92, 97, 102, 0.24);
+  --scrollbar-thumb: rgba(92, 97, 102, 0.18);
+  --scrollbar-thumb-hover: rgba(92, 97, 102, 0.28);
+}
+
+/* Material Ocean - the deep-blue variant of the popular Material Theme family; soft,
+   layered "material design" elevation shadows. */
+.theme-material-ocean {
+  color-scheme: dark;
+  --bg-app: #0f111a;
+  --bg-panel: #14171f;
+  --bg-panel-alt: #191c27;
+  --bg-hover: #232735;
+  --bg-selected: #1a2b4a;
+  --bg-selected-text: #a6accd;
+  --border: rgba(166, 172, 205, 0.08);
+  --border-strong: rgba(166, 172, 205, 0.15);
+  --text: #a6accd;
+  --text-dim: #676e95;
+  --accent: #82aaff;
+  --accent-hover: #9cbcff;
+  --accent-contrast: #0f111a;
+  --success: #c3e88d;
+  --error: #ff5370;
+  --warning: #ffcb6b;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 15px;
+  --radius-xl: 20px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35), 0 1px 1px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 3px 6px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 6px 12px rgba(0, 0, 0, 0.35), 0 24px 54px rgba(0, 0, 0, 0.45);
+  --overlay: rgba(4, 5, 9, 0.6);
+  --scrollbar-thumb: rgba(166, 172, 205, 0.15);
+  --scrollbar-thumb-hover: rgba(166, 172, 205, 0.26);
+}
+
+/* GitHub Dark - GitHub's own product UI palette; small radius, crisp hairline borders,
+   restrained shadow (closest structural sibling of the app's own default theme). */
+.theme-github-dark {
+  color-scheme: dark;
+  --bg-app: #0d1117;
+  --bg-panel: #161b22;
+  --bg-panel-alt: #1c2129;
+  --bg-hover: #21262d;
+  --bg-selected: #1c3a5e;
+  --bg-selected-text: #c9d1d9;
+  --border: rgba(201, 209, 217, 0.08);
+  --border-strong: #30363d;
+  --text: #c9d1d9;
+  --text-dim: #8b949e;
+  --accent: #58a6ff;
+  --accent-hover: #79c0ff;
+  --accent-contrast: #0d1117;
+  --success: #3fb950;
+  --error: #f85149;
+  --warning: #d29922;
+  --radius-sm: 5px;
+  --radius-md: 6px;
+  --radius-lg: 9px;
+  --radius-xl: 12px;
+  --shadow-sm: 0 1px 2px rgba(1, 4, 9, 0.4);
+  --shadow-md: 0 8px 24px rgba(1, 4, 9, 0.5);
+  --shadow-lg: 0 16px 48px rgba(1, 4, 9, 0.55);
+  --overlay: rgba(1, 4, 9, 0.6);
+  --scrollbar-thumb: rgba(201, 209, 217, 0.16);
+  --scrollbar-thumb-hover: rgba(201, 209, 217, 0.28);
+}
+
+/* GitHub Light - GitHub's default light product UI palette. */
+.theme-github-light {
+  color-scheme: light;
+  --bg-app: #ffffff;
+  --bg-panel: #f6f8fa;
+  --bg-panel-alt: #eff2f5;
+  --bg-hover: #eaeef2;
+  --bg-selected: #b6e3ff;
+  --bg-selected-text: #0a3069;
+  --border: rgba(31, 35, 40, 0.08);
+  --border-strong: #d0d7de;
+  --text: #1f2328;
+  --text-dim: #59636e;
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --accent-contrast: #ffffff;
+  --success: #1a7f37;
+  --error: #cf222e;
+  --warning: #9a6700;
+  --radius-sm: 5px;
+  --radius-md: 6px;
+  --radius-lg: 9px;
+  --radius-xl: 12px;
+  --shadow-sm: 0 1px 0 rgba(31, 35, 40, 0.04);
+  --shadow-md: 0 8px 24px rgba(140, 149, 159, 0.2);
+  --shadow-lg: 0 16px 48px rgba(140, 149, 159, 0.24);
+  --overlay: rgba(31, 35, 40, 0.24);
+  --scrollbar-thumb: rgba(31, 35, 40, 0.16);
+  --scrollbar-thumb-hover: rgba(31, 35, 40, 0.26);
+}
+
+/* SynthWave '84 - the definitive "riced" neon retrowave theme: near-zero radius, bold
+   headings, and colored neon glow shadows instead of plain black elevation. The showcase
+   theme in this set for "TUI gone maximalist." */
+.theme-synthwave84 {
+  color-scheme: dark;
+  --bg-app: #262335;
+  --bg-panel: #2a2139;
+  --bg-panel-alt: #241b2f;
+  --bg-hover: #34294f;
+  --bg-selected: #3b2f5c;
+  --bg-selected-text: #ff7edb;
+  --border: rgba(255, 126, 219, 0.16);
+  --border-strong: rgba(255, 126, 219, 0.32);
+  --text: #f4eee4;
+  --text-dim: #848bbd;
+  --accent: #ff7edb;
+  --accent-hover: #ff9dea;
+  --accent-contrast: #241b2f;
+  --success: #72f1b8;
+  --error: #fe4450;
+  --warning: #fede5d;
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+  --letter-spacing-heading: 0.01em;
+  --heading-weight: 700;
+  --shadow-sm: 0 0 6px rgba(255, 126, 219, 0.25);
+  --shadow-md: 0 8px 26px rgba(0, 0, 0, 0.55), 0 0 26px rgba(255, 126, 219, 0.25), 0 0 44px rgba(54, 249, 246, 0.12);
+  --shadow-lg: 0 20px 54px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 126, 219, 0.3), 0 0 64px rgba(54, 249, 246, 0.15);
+  --overlay: rgba(15, 10, 24, 0.68);
+  --scrollbar-thumb: rgba(255, 126, 219, 0.28);
+  --scrollbar-thumb-hover: rgba(255, 126, 219, 0.42);
+}
+
+/* Sonokai - "High Contrast & Vivid Color Scheme based on Monokai Pro"; saturated, medium
+   rounding, a touch of colored glow like its Monokai heritage. */
+.theme-sonokai {
+  color-scheme: dark;
+  --bg-app: #2c2e34;
+  --bg-panel: #33353f;
+  --bg-panel-alt: #393b45;
+  --bg-hover: #414550;
+  --bg-selected: #414550;
+  --bg-selected-text: #e2e2e3;
+  --border: rgba(226, 226, 227, 0.08);
+  --border-strong: rgba(226, 226, 227, 0.15);
+  --text: #e2e2e3;
+  --text-dim: #7f8490;
+  --accent: #76cce0;
+  --accent-hover: #85d3f2;
+  --accent-contrast: #181819;
+  --success: #9ed072;
+  --error: #fc5d7c;
+  --warning: #e7c664;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 13px;
+  --radius-xl: 18px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 12px 30px rgba(12, 13, 16, 0.5), 0 0 20px rgba(118, 204, 224, 0.1);
+  --shadow-lg: 0 24px 56px rgba(12, 13, 16, 0.55), 0 0 30px rgba(118, 204, 224, 0.12);
+  --overlay: rgba(12, 13, 16, 0.55);
+  --scrollbar-thumb: rgba(226, 226, 227, 0.15);
+  --scrollbar-thumb-hover: rgba(226, 226, 227, 0.26);
+}
+
+/* Solarized Dark - Ethan Schoonover's iconic palette, dark variant (companion to the
+   existing Solarized Light above); same warm, low-contrast structural profile. */
+.theme-solarized-dark {
+  color-scheme: dark;
+  --bg-app: #002b36;
+  --bg-panel: #073642;
+  --bg-panel-alt: #0c414e;
+  --bg-hover: #114a58;
+  --bg-selected: #0e4f60;
+  --bg-selected-text: #fdf6e3;
+  --border: rgba(238, 232, 213, 0.08);
+  --border-strong: rgba(238, 232, 213, 0.15);
+  --text: #93a1a1;
+  --text-dim: #6f8686;
+  --accent: #2aa198;
+  --accent-hover: #3ec2b8;
+  --accent-contrast: #002b36;
+  --success: #859900;
+  --error: #dc322f;
+  --warning: #cb9b23;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 13px;
+  --radius-xl: 18px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 10px 28px rgba(0, 12, 15, 0.45), 0 2px 8px rgba(0, 12, 15, 0.3);
+  --shadow-lg: 0 22px 52px rgba(0, 12, 15, 0.5), 0 4px 14px rgba(0, 12, 15, 0.32);
+  --overlay: rgba(0, 12, 15, 0.55);
+  --scrollbar-thumb: rgba(238, 232, 213, 0.15);
+  --scrollbar-thumb-hover: rgba(238, 232, 213, 0.26);
 }
 
 /* Thin, theme-aware scrollbars */
