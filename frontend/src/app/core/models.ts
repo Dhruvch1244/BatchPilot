@@ -81,6 +81,10 @@ export interface AppSettings {
   terminalFontFamily: string;
   uiFontSizePx: number;
   uiLineHeight: number;
+  /** Overall UI density/zoom as a percentage (100 = no scaling), applied via CSS `zoom`. */
+  uiScalePercent: number;
+  /** Whether the first-run setup wizard has already been shown or skipped. */
+  onboardingCompleted: boolean;
 }
 
 export interface FileEntry {

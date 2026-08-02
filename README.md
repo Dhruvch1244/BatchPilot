@@ -260,9 +260,54 @@ Backend settings live in `backend/src/main/resources/application.yml`:
 | `batchpilot.default-username` | `hadoop` | Fixed SSH username for every environment |
 | `spring.servlet.multipart.max-file-size` | `2GB` | Max single file upload size |
 
-Application-level settings (font size, theme, auto-reconnect, max tabs, upload
-limits) are editable from the Settings dialog in the UI and persisted to
-`settings.json`.
+Application-level settings (theme, fonts, auto-reconnect, max tabs, upload
+limits, ...) are editable from the Settings dialog in the UI and persisted to
+`settings.json`. Defaults: 12px UI/terminal font size, 90% UI scale (see
+below), 15 max terminal tabs, 2GB max upload size, auto-reconnect on.
+
+The Settings modal (gear icon in the toolbar) is a left-nav **tabbed**
+layout — **Appearance**, **Typography**, **Connection**, **Tabs & Uploads**,
+**Data & History** — rather than one long scrolling page, so Appearance
+(29 theme swatches) and Typography (fonts/sizes/scale) each get their own
+focused screen instead of competing for space in a single cluttered
+"Appearance" section. Appearance and Typography both show a **live preview**
+panel (`shared/appearance-preview.component.ts` — a miniature mock of the
+real toolbar/sidebar/card/button, styled by applying the exact same
+`.theme-*` class the real app shell uses to a small scoped container) that
+reflects the in-progress, not-yet-saved form values, so nothing has to be
+committed blind before seeing it.
+
+### UI scale
+
+Settings → Typography → **UI scale** (default 90%) is an overall zoom applied
+via CSS `zoom` on the document root (`--ui-scale` custom property, set from
+`AppComponent`) — the same mechanism as a browser's own native zoom, chosen
+specifically so viewport-relative layout (the app shell's own `100vh`/`100vw`
+sizing) stays consistent instead of drifting from whatever gets scaled.
+Denser than 100% by default for less scrolling on a typical
+corporate-laptop-sized window; raise it back to 100%+ any time from Settings.
+
+### First-run setup wizard
+
+The first time BatchPilot is ever opened (no `settings.json` yet, so
+`onboardingCompleted` defaults to `false`), a short setup wizard
+(`onboarding/onboarding-wizard.component.ts`) walks through **Theme** →
+**Typography** → **Defaults** → **Done**, each step live-previewed exactly
+like the Settings modal (they share the same preview component and the same
+theme/font catalogs, so the two never drift out of sync). **Skip setup** is
+available at every step and still marks onboarding as seen, so it never
+reappears uninvited — only "Get started" actually commits the wizard's
+choices, skipping discards any in-progress draft. It's replayable any time
+after from Settings → Data & History → "Replay the first-time setup wizard."
+
+### Motion
+
+Two shared easing curves in `styles.css` (`--ease-bounce`, a gentle
+overshoot-and-settle spring; `--ease-spring`, a snappier no-overshoot one)
+drive a small set of "premium app" touches: modals pop in with a soft
+bounce, a newly-selected theme swatch does a quick scale pop, buttons/feature
+cards lift with a spring on hover, and toasts bounce in from the bottom —
+all disabled automatically under `prefers-reduced-motion: reduce`.
 
 ### Theme palette
 

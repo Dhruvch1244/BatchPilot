@@ -15,6 +15,7 @@ import { ApplicationsPanelComponent } from './applications/applications-panel.co
 import { StageTrackerPanelComponent } from './stage-tracker/stage-tracker-panel.component';
 import { S3TransferPanelComponent } from './s3-transfer/s3-transfer-panel.component';
 import { S3ExplorerPanelComponent } from './s3-explorer/s3-explorer-panel.component';
+import { OnboardingWizardComponent } from './onboarding/onboarding-wizard.component';
 import { IconComponent, IconName } from './shared/icon.component';
 
 export type EnvironmentFormState = { mode: 'create' } | { mode: 'edit'; environment: Environment } | null;
@@ -69,6 +70,7 @@ const ASCII_LOGO = [
     StageTrackerPanelComponent,
     S3TransferPanelComponent,
     S3ExplorerPanelComponent,
+    OnboardingWizardComponent,
     IconComponent
   ],
   templateUrl: './app.component.html'
@@ -79,6 +81,10 @@ export class AppComponent implements OnInit {
   quickExecuteOpen = false;
   settingsOpen = false;
   environmentForm: EnvironmentFormState = null;
+  /** Forces the onboarding wizard open regardless of `onboardingCompleted` - set by
+   * Settings -> Data & History's "Replay the first-time setup wizard" button. Cleared
+   * again once the wizard finishes or is skipped. */
+  private onboardingReplayRequested = false;
   /** Read once by a newly created stage-tracker tab's ngOnInit; see
    * openStageTrackerForQuery. */
   pendingStageTrackerQuery = '';
@@ -97,6 +103,11 @@ export class AppComponent implements OnInit {
       root.setProperty('--font-ui', fontStackFor(UI_FONT_OPTIONS, settings.uiFontFamily));
       root.setProperty('--font-size-ui', `${settings.uiFontSizePx}px`);
       root.setProperty('--line-height-ui', `${settings.uiLineHeight}`);
+      // Overall UI density: CSS `zoom` on the root, not `.app-shell` - zoom changes what a
+      // "CSS pixel" means for everything inside it, and doing that at the true document root
+      // is what keeps 100vh/100vw-based layout (the app shell's own full-viewport sizing)
+      // consistent, the same way the browser's own native zoom works.
+      root.setProperty('--ui-scale', `${settings.uiScalePercent / 100}`);
     });
   }
 
@@ -303,5 +314,22 @@ export class AppComponent implements OnInit {
 
   openEditForm(env: Environment): void {
     this.environmentForm = { mode: 'edit', environment: env };
+  }
+
+  /** True once initial settings have actually loaded (never show the wizard against the
+   * placeholder DEFAULT_SETTINGS a fresh signal starts with) and either this is a genuine
+   * first launch or Settings -> Data & History explicitly asked to replay it. */
+  showOnboarding(): boolean {
+    if (this.state.loading()) return false;
+    return this.onboardingReplayRequested || !this.state.settings().onboardingCompleted;
+  }
+
+  replayOnboarding(): void {
+    this.settingsOpen = false;
+    this.onboardingReplayRequested = true;
+  }
+
+  onOnboardingDone(): void {
+    this.onboardingReplayRequested = false;
   }
 }
