@@ -1029,7 +1029,14 @@ input, select, textarea {
 .app-shell {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  /* `height: 100%` on purpose, not 100vh: `zoom` (used for the UI scale setting, see
+     `html { zoom: var(--ui-scale, ...) }` above) rescales rendering but NOT viewport units -
+     vh/vw always resolve against the real, unzoomed device viewport. At the default 90%
+     scale that mismatch left a 10%-tall strip of unpainted white space below a `100vh` app
+     shell. `height: 100%` instead inherits down the already-100%-chained html/body/app-root
+     ancestors (see the `html, body, app-root` rule above), which resolves entirely within
+     the same zoomed coordinate system as everything else, so it actually fills the window. */
+  height: 100%;
   background: var(--bg-app);
   color: var(--text);
 }
