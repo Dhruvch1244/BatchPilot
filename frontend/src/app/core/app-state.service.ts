@@ -4,17 +4,19 @@ import { ApiService } from './api.service';
 import { AppSettings, ConnectionStatus, Environment, EnvironmentRequest } from './models';
 
 const DEFAULT_SETTINGS: AppSettings = {
-  fontSize: 14,
+  fontSize: 12,
   theme: 'dark',
   autoReconnect: true,
   reconnectIntervalSeconds: 5,
   maxReconnectAttempts: 5,
-  maxTabs: 10,
+  maxTabs: 15,
   maxUploadSizeMb: 2048,
   uiFontFamily: 'system',
   terminalFontFamily: 'auto',
-  uiFontSizePx: 14,
-  uiLineHeight: 1.5
+  uiFontSizePx: 12,
+  uiLineHeight: 1.5,
+  uiScalePercent: 90,
+  onboardingCompleted: false
 };
 
 /**

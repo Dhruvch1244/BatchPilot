@@ -102,7 +102,11 @@
   }
 
   @if (settingsOpen) {
-    <app-settings-modal (close)="settingsOpen = false"></app-settings-modal>
+    <app-settings-modal (close)="settingsOpen = false" (replayOnboarding)="replayOnboarding()"></app-settings-modal>
+  }
+
+  @if (showOnboarding()) {
+    <app-onboarding-wizard [initial]="state.settings()" (done)="onOnboardingDone()"></app-onboarding-wizard>
   }
 
   @if (environmentForm) {
