@@ -447,7 +447,15 @@ with no user-visible difference beyond speed.
   500 MB/1/2/5 GB) and an optional grep filter, both applied *on the remote
   host* via `tail -c` / `grep` before anything crosses the wire, then streamed
   straight through to a normal browser download (lands in your Downloads
-  folder like any other file).
+  folder like any other file). This, File Manager downloads, and S3 Explorer
+  downloads all stream via Spring's `StreamingResponseBody`, which Spring MVC
+  treats as an async request with its own ~30s timeout independent of any
+  SSH/SFTP-level timeout — large enough files (or a slow enough connection)
+  used to get silently cut off mid-transfer once 30s elapsed, with no
+  `Content-Length` set (chunked encoding) for the client to detect the
+  truncation. `spring.mvc.async.request-timeout` is set to 30 minutes in
+  `application.yml` to fix this, matching the SSH-level timeout already used
+  for large S3 transfers.
 - **More YARN commands** — `yarn node -list -all` (cluster node health/
   container counts), `yarn queue -status <queue>`, `yarn applicationattempt
   -list <appId>`, and `yarn container -list <attemptId>` are exposed as REST
