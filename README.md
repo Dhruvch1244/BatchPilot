@@ -345,7 +345,15 @@ font-family stacks with fallbacks, not bundled webfont files, so a chosen
 font renders only if it's actually installed on the machine BatchPilot is
 opened on.
 
-## Terminal
+## Terminal & tabs
+
+Every open panel — Terminal, Files, Applications, Stage Tracker, S3 Transfer,
+S3 Explorer, any number of each, across any environment — lives in the same
+tab strip (`tab-strip.component.ts`) under the toolbar. Tabs can be dragged
+into any order: drag one by its title onto another to drop it there, with a
+left-edge indicator line showing where it'll land. Purely a client-side
+reorder (no persistence, same as which tab is currently active), so it resets
+on reload rather than needing its own settings/storage plumbing.
 
 The Terminal panel (`terminal-tab.component.ts`, built on xterm.js) supports
 copy/paste beyond plain typing:
