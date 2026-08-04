@@ -99,7 +99,7 @@ function formatDuration(ms: number): string {
                   <div class="stage-detail-group">
                     <span class="stage-group-label">{{ group.label }}</span>
                     @for (m of visibleMatches(file, group); track m.applicationId) {
-                      <ng-container *ngTemplateOutlet="matchRow; context: { $implicit: m, file: file }"></ng-container>
+                      <ng-container *ngTemplateOutlet="matchRow; context: { $implicit: m }"></ng-container>
                     }
                     @if (group.matches.length > 1 && !isGroupExpanded(file, group)) {
                       <button class="stage-history-toggle" type="button" (click)="toggleGroup(file, group)">
@@ -117,7 +117,7 @@ function formatDuration(ms: number): string {
                   <div class="stage-detail-group">
                     <span class="stage-group-label">Other matches (stage not recognized from name)</span>
                     @for (m of file.unclassifiedMatches; track m.applicationId) {
-                      <ng-container *ngTemplateOutlet="matchRow; context: { $implicit: m, file: file }"></ng-container>
+                      <ng-container *ngTemplateOutlet="matchRow; context: { $implicit: m }"></ng-container>
                     }
                   </div>
                 }
@@ -154,8 +154,12 @@ function formatDuration(ms: number): string {
         }
       </aside>
 
-      <ng-template #matchRow let-m let-file="file">
-        <div class="app-card app-card-clickable" title="Click to focus on just this file" (click)="focusFile(file)">
+      <ng-template #matchRow let-m>
+        <div
+          class="app-card app-card-clickable"
+          [title]="m.trackingUrl ? 'Open in YARN Resource Manager' : 'View logs'"
+          (click)="visitMatch(m)"
+        >
           <div class="app-card-info">
             <div class="app-card-name">{{ m.applicationName }}</div>
             <div class="app-card-meta">
@@ -248,9 +252,16 @@ export class StageTrackerPanelComponent implements OnInit {
     this.search();
   }
 
-  focusFile(file: FileStageResult): void {
-    this.query = file.coreFileName;
-    this.search();
+  /** Clicking a match row should always take you somewhere, same as a row click in the
+   * Applications panel does - the YARN Resource Manager's own page for that application
+   * when we have a tracking URL for it, or the logs modal (the next most useful "somewhere")
+   * when we don't, e.g. once the application has aged out of the RM's UI. */
+  visitMatch(match: StageMatch): void {
+    if (match.trackingUrl) {
+      window.open(match.trackingUrl, '_blank', 'noopener');
+    } else {
+      this.logsFor = match.applicationId;
+    }
   }
 
   async search(): Promise<void> {
