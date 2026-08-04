@@ -345,6 +345,34 @@ font-family stacks with fallbacks, not bundled webfont files, so a chosen
 font renders only if it's actually installed on the machine BatchPilot is
 opened on.
 
+## Terminal & tabs
+
+Every open panel — Terminal, Files, Applications, Stage Tracker, S3 Transfer,
+S3 Explorer, any number of each, across any environment — lives in the same
+tab strip (`tab-strip.component.ts`) under the toolbar. Tabs can be dragged
+into any order: drag one by its title onto another to drop it there, with a
+left-edge indicator line showing where it'll land. Purely a client-side
+reorder (no persistence, same as which tab is currently active), so it resets
+on reload rather than needing its own settings/storage plumbing.
+
+The Terminal panel (`terminal-tab.component.ts`, built on xterm.js) supports
+copy/paste beyond plain typing:
+
+- **Copy-on-select** — dragging out a selection copies it to the clipboard
+  immediately, no extra keypress, the standard X11/Linux terminal convention.
+- **Ctrl+Shift+C / Ctrl+Shift+V** (or **Cmd+C / Cmd+V** on Mac) — explicit
+  copy/paste shortcuts. They're on Shift+ variants rather than plain Ctrl+C/V
+  specifically so they don't collide with the shell's own use of those keys
+  (Ctrl+C is SIGINT, Ctrl+V is "insert next character literally" in
+  readline/bash) — plain Ctrl+C still reaches the shell exactly as before.
+- **Right-click** — copies the current selection if there is one, otherwise
+  pastes the clipboard; the classic PuTTY/xterm right-click convention, and
+  the fastest mouse-only path when you don't want to reach for the keyboard.
+
+Pasted text is queued through the same `ready`/pending-input buffer normal
+typed keystrokes use, so pasting immediately after connecting (before the SSH
+PTY channel is confirmed open) doesn't get silently dropped.
+
 ## YARN applications & the file stage tracker
 
 Two toolbar actions expose Hadoop YARN (the resource manager, *not* the JS
@@ -395,9 +423,15 @@ with no user-visible difference beyond speed.
   files go through it) — ordered by each stage's earliest observed start
   time rather than a hardcoded sequence, i.e. the actual flow for that file.
   Each card also shows the most recent completion time across its matches.
-  Clicking a match narrows the search down to just that file (useful after a
-  broad search matched several) rather than opening logs — logs have their
-  own dedicated icon per match, same as Applications. A **Recent searches**
+  Clicking a match opens that application's own page on the YARN Resource
+  Manager (the same `trackingUrl` the RM reports for it) in a new tab — the
+  deepest, most authoritative view of that specific run, one click away, no
+  extra "view in RM" button needed. If the RM doesn't report a tracking URL
+  for that application (it can age out of the RM's UI once old enough), the
+  click falls back to opening the logs modal instead, so it still always goes
+  somewhere. Logs also have their own dedicated icon per match, same as
+  Applications, for opening logs specifically regardless of tracking-URL
+  availability. A **Recent searches**
   sidebar on the left (not a dropdown) keeps the last 10 unique filenames
   searched, persisted server-side so they survive a reconnect/reload — you
   don't have to retype a filename you already searched. Every search upserts

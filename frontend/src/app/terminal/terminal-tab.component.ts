@@ -439,6 +439,7 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
    * looks like "the terminal isn't responding" to whoever typed them. */
   private ready = false;
   private pendingInput: string[] = [];
+  private onContextMenu?: (event: MouseEvent) => void;
 
   constructor(private state: AppStateService) {
     effect(() => {
@@ -477,6 +478,34 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
     this.term = term;
     this.fitAddon = fitAddon;
 
+    // Ctrl+C/Ctrl+V are already spoken for by the shell (SIGINT / literal-paste-as-typed),
+    // so copy/paste live on Ctrl+Shift+C/V (Linux/Windows terminal convention) and plain
+    // Cmd+C/Cmd+V on Mac, where Ctrl is a separate key from Cmd and there's no clash.
+    term.attachCustomKeyEventHandler((event) => this.handleTerminalKeyEvent(event));
+
+    // Copy-on-select (the standard X11/Linux terminal convention): dragging out a
+    // selection immediately puts it on the clipboard, no extra keypress needed.
+    term.onSelectionChange(() => {
+      const selection = term.getSelection();
+      if (selection) {
+        navigator.clipboard?.writeText(selection).catch(() => {});
+      }
+    });
+
+    // Right-click: copy the current selection if there is one, otherwise paste -
+    // the classic PuTTY/xterm right-click convention, and the fastest mouse-only path.
+    this.onContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
+      const selection = term.getSelection();
+      if (selection) {
+        navigator.clipboard?.writeText(selection).catch(() => {});
+        term.clearSelection();
+      } else {
+        this.pasteFromClipboard();
+      }
+    };
+    container.addEventListener('contextmenu', this.onContextMenu);
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(
       `${protocol}//${window.location.host}/ws/terminal/${this.environmentId}?cols=${term.cols}&rows=${term.rows}`
@@ -506,16 +535,7 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
     ws.onclose = () => (this.statusMessage = 'Disconnected from terminal');
     ws.onerror = () => (this.statusMessage = 'Terminal connection error');
 
-    term.onData((data) => {
-      if (ws.readyState !== WebSocket.OPEN) {
-        return;
-      }
-      if (this.ready) {
-        ws.send(new TextEncoder().encode(data));
-      } else {
-        this.pendingInput.push(data);
-      }
-    });
+    term.onData((data) => this.sendInput(data));
 
     term.onResize(({ cols, rows }) => {
       if (ws.readyState === WebSocket.OPEN) {
@@ -534,6 +554,68 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
     ws.send(new TextEncoder().encode(buffered));
   }
 
+  /** Shared entry point for anything sent to the PTY - typed keystrokes and pasted text
+   * alike - so pastes respect the same ready/pendingInput queue as normal typing instead
+   * of racing the WebSocket's own connect-vs-PTY-ready timing. */
+  private sendInput(data: string): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    if (this.ready) {
+      this.ws.send(new TextEncoder().encode(data));
+    } else {
+      this.pendingInput.push(data);
+    }
+  }
+
+  private copySelection(): boolean {
+    const selection = this.term?.getSelection();
+    if (!selection) {
+      return false;
+    }
+    navigator.clipboard?.writeText(selection).catch(() => {});
+    return true;
+  }
+
+  private pasteFromClipboard(): void {
+    navigator.clipboard
+      ?.readText()
+      .then((text) => {
+        if (text) {
+          this.sendInput(text);
+        }
+      })
+      .catch(() => {
+        this.statusMessage = 'Could not read the clipboard - check browser permissions';
+      });
+  }
+
+  /** Intercepts the copy/paste shortcuts before xterm.js's default key handling, which
+   * would otherwise forward them straight to the PTY like any other keystroke. Returning
+   * `false` stops that forwarding; returning `true` lets xterm handle the key as usual. */
+  private handleTerminalKeyEvent(event: KeyboardEvent): boolean {
+    if (event.type !== 'keydown') {
+      return true;
+    }
+    const key = event.key.toLowerCase();
+    const isCopyChord = (event.ctrlKey && event.shiftKey && key === 'c') || (event.metaKey && !event.ctrlKey && key === 'c');
+    const isPasteChord = (event.ctrlKey && event.shiftKey && key === 'v') || (event.metaKey && !event.ctrlKey && key === 'v');
+
+    if (isCopyChord) {
+      if (this.copySelection()) {
+        event.preventDefault();
+        return false;
+      }
+      return true;
+    }
+    if (isPasteChord) {
+      event.preventDefault();
+      this.pasteFromClipboard();
+      return false;
+    }
+    return true;
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['active'] && this.active && this.fitAddon && this.term) {
       safeFit(this.fitAddon);
@@ -542,6 +624,9 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
   }
 
   ngOnDestroy(): void {
+    if (this.onContextMenu) {
+      this.hostRef.nativeElement.removeEventListener('contextmenu', this.onContextMenu);
+    }
     this.resizeObserver?.disconnect();
     this.ws?.close();
     this.term?.dispose();

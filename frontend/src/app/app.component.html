@@ -54,6 +54,7 @@
           [activeTabId]="activeTabId"
           (select)="activeTabId = $event"
           (close)="closeTab($event)"
+          (reorder)="tabs = $event"
         ></app-tab-strip>
         <div class="tab-panels">
           @for (tab of tabs; track tab.id) {

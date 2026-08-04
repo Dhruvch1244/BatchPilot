@@ -1446,6 +1446,16 @@ textarea:focus-visible {
   background: var(--bg-hover);
 }
 
+.tab-strip-item-dragging {
+  opacity: 0.4;
+}
+
+/* A left-edge indicator line rather than a background swap - reads as "drops here",
+   unambiguous regardless of which side of the target tab the pointer is actually over. */
+.tab-strip-item-drag-over {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
 .tab-strip-item-active {
   background: var(--bg-app);
   color: var(--text);
