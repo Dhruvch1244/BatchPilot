@@ -8,6 +8,11 @@ attached (unzip it, then double-click `BatchPilot.bat` on Windows or run
 
 <!-- RELEASES_START: new entries are inserted directly below this marker by CI - do not remove it. -->
 
+## v1.0.0-5 — 2026-08-05
+
+- Merge pull request #18 from Dhruvch1244/claude/batch-pilot-requirements-j6j4mu (e181ec7)
+- [Download BatchPilot.zip](https://github.com/Dhruvch1244/BatchPilot/releases/download/v1.0.0-5/BatchPilot.zip)
+
 ## v1.0.0-4 — 2026-08-04
 
 - Merge pull request #17 from Dhruvch1244/claude/batch-pilot-requirements-j6j4mu (508baf0)
