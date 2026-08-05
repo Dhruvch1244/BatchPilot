@@ -6,6 +6,19 @@ server:
 spring:
   application:
     name: batchpilot-backend
+  mvc:
+    async:
+      # File Manager/S3 Explorer/YARN-logs downloads all stream through a
+      # StreamingResponseBody, which Spring MVC treats as an async request -
+      # subject to Spring's own async timeout independently of any SSH/SFTP-level
+      # timeout the service code already enforces. Left at Spring's ~30s default,
+      # any download of a large-enough file (or just a slow enough connection)
+      # got silently cut off mid-stream once 30s elapsed, well before the file was
+      # fully sent - the connection was simply dropped, with no Content-Length set
+      # (chunked encoding) for the client to even detect the response was short.
+      # 30 minutes matches TRANSFER_TIMEOUT_SECONDS, the SSH-level timeout already
+      # used for genuinely large S3 transfers elsewhere in the backend.
+      request-timeout: 1800000
   servlet:
     multipart:
       max-file-size: 2GB
