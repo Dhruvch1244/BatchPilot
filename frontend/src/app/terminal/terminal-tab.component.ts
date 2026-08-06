@@ -488,7 +488,7 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
     term.onSelectionChange(() => {
       const selection = term.getSelection();
       if (selection) {
-        navigator.clipboard?.writeText(selection).catch(() => {});
+        this.writeClipboard(selection);
       }
     });
 
@@ -498,7 +498,7 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
       event.preventDefault();
       const selection = term.getSelection();
       if (selection) {
-        navigator.clipboard?.writeText(selection).catch(() => {});
+        this.writeClipboard(selection);
         term.clearSelection();
       } else {
         this.pasteFromClipboard();
@@ -573,13 +573,54 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
     if (!selection) {
       return false;
     }
-    navigator.clipboard?.writeText(selection).catch(() => {});
+    this.writeClipboard(selection);
     return true;
   }
 
+  /** navigator.clipboard.writeText() is only defined in a "secure context" - https, or
+   * localhost - so it's simply undefined when this app is reached over plain http:// on
+   * an internal network (the common case; this isn't typically deployed behind TLS).
+   * document.execCommand('copy') is older and deprecated but, unlike its 'paste'
+   * counterpart, was never locked down the same way and still works on any origin - so
+   * it's the fallback that makes copy actually work in that deployment. */
+  private writeClipboard(text: string): void {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => this.legacyCopy(text));
+    } else {
+      this.legacyCopy(text);
+    }
+  }
+
+  private legacyCopy(text: string): void {
+    const scratch = document.createElement('textarea');
+    scratch.value = text;
+    scratch.setAttribute('readonly', '');
+    scratch.style.position = 'fixed';
+    scratch.style.top = '0';
+    scratch.style.left = '-9999px';
+    document.body.appendChild(scratch);
+    scratch.select();
+    try {
+      document.execCommand('copy');
+    } catch {
+      // best effort - nothing else to fall back to
+    }
+    document.body.removeChild(scratch);
+  }
+
+  /** Used by the Ctrl+Shift+V shortcut and right-click paste, both of which need to read
+   * the clipboard programmatically rather than in response to a native browser paste
+   * event - so unlike copy, there's no equivalent legacy fallback once
+   * navigator.clipboard.readText() is unavailable (document.execCommand('paste') has been
+   * blocked in Chrome for years). Plain Ctrl+V still works in that case via the native
+   * `paste` event listener set up in ngAfterViewInit, so the message below points there. */
   private pasteFromClipboard(): void {
+    if (!navigator.clipboard?.readText) {
+      this.statusMessage = 'Clipboard access needs HTTPS (or localhost) here - try Ctrl+V instead';
+      return;
+    }
     navigator.clipboard
-      ?.readText()
+      .readText()
       .then((text) => {
         if (text) {
           this.sendInput(text);
@@ -590,16 +631,40 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
       });
   }
 
-  /** Intercepts the copy/paste shortcuts before xterm.js's default key handling, which
-   * would otherwise forward them straight to the PTY like any other keystroke. Returning
-   * `false` stops that forwarding; returning `true` lets xterm handle the key as usual. */
+  /** Intercepts the copy/paste shortcuts before xterm.js's default key handling. Per
+   * xterm's own contract, returning `false` means "don't touch this event at all" -
+   * xterm won't forward it to the PTY *and* won't call its own preventDefault() either;
+   * returning `true` lets xterm do whatever it would normally do with the key.
+   *
+   * Ctrl+Insert/Shift+Insert are the primary Windows/Linux bindings (the classic
+   * PuTTY/mintty/Windows-Terminal convention) rather than Ctrl+Shift+C/V, because
+   * Ctrl+Shift+C is reserved by both Chrome and Firefox for their element-inspector
+   * shortcut at the browser-chrome level - preventDefault() in page JS can't stop it, so
+   * relying on it as the *only* binding left copy silently non-functional in the two most
+   * common browsers. Ctrl+Shift+C/V and Cmd+C/V are still supported alongside them for
+   * anyone whose setup doesn't hit that collision (or just already has the muscle memory). */
   private handleTerminalKeyEvent(event: KeyboardEvent): boolean {
     if (event.type !== 'keydown') {
       return true;
     }
     const key = event.key.toLowerCase();
-    const isCopyChord = (event.ctrlKey && event.shiftKey && key === 'c') || (event.metaKey && !event.ctrlKey && key === 'c');
-    const isPasteChord = (event.ctrlKey && event.shiftKey && key === 'v') || (event.metaKey && !event.ctrlKey && key === 'v');
+    const isCopyChord =
+      (event.ctrlKey && event.shiftKey && key === 'c') ||
+      (event.metaKey && !event.ctrlKey && key === 'c') ||
+      (event.ctrlKey && !event.shiftKey && key === 'insert');
+    // Explicit, Clipboard-API-backed paste shortcuts.
+    const isClipboardApiPasteChord =
+      (event.ctrlKey && event.shiftKey && key === 'v') || (event.shiftKey && !event.ctrlKey && key === 'insert');
+    // Plain Ctrl+V/Cmd+V: xterm.js already listens for the native browser `paste` event
+    // on its own hidden textarea and forwards whatever it gets straight into `onData`
+    // (i.e. this component's existing sendInput plumbing) - no code of ours needed for
+    // that part. The catch is that xterm's default key handling calls preventDefault()
+    // on the Ctrl+V *keydown* itself (it has no binding for that combination, but still
+    // swallows the keydown like most others), which cancels the browser's native paste
+    // action before it can even fire - silently breaking paste with no visible error.
+    // Returning `false` here tells xterm to leave this keydown alone entirely, so the
+    // native paste actually happens and xterm's own listener picks it up as normal.
+    const isNativePasteChord = (event.ctrlKey || event.metaKey) && !event.shiftKey && key === 'v';
 
     if (isCopyChord) {
       if (this.copySelection()) {
@@ -608,9 +673,12 @@ export class TerminalTabComponent implements AfterViewInit, OnChanges, OnDestroy
       }
       return true;
     }
-    if (isPasteChord) {
+    if (isClipboardApiPasteChord) {
       event.preventDefault();
       this.pasteFromClipboard();
+      return false;
+    }
+    if (isNativePasteChord) {
       return false;
     }
     return true;
