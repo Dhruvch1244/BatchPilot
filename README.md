@@ -355,6 +355,18 @@ left-edge indicator line showing where it'll land. Purely a client-side
 reorder (no persistence, same as which tab is currently active), so it resets
 on reload rather than needing its own settings/storage plumbing.
 
+Each toolbar button that opens a panel (Terminal, Files, Applications, ...)
+is paired with a small chevron - a split button, same idea as ag-grid's
+column-menu hamburger. Clicking the chevron toggles a dropdown listing any
+tabs of that type already open plus a "New ... tab" action, so opening a
+duplicate is a deliberate choice rather than the only way back to one
+that's already open. It's a real click-to-toggle (open on click, close on
+another click or a click elsewhere) rather than hover-driven - an earlier
+hover-based version could flash open and instantly close on an ordinary
+click, since the main button's own action (e.g. opening a tab) can shift
+the layout enough to slide the button out from under the pointer before
+the menu was even visible.
+
 The Terminal panel (`terminal-tab.component.ts`, built on xterm.js) supports
 copy/paste beyond plain typing:
 
