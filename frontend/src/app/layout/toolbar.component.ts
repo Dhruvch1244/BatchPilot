@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, Output } from '@angular/core';
 import { AppStateService } from '../core/app-state.service';
 import { Tab, TabType } from '../core/models';
 import { IconComponent } from '../shared/icon.component';
@@ -32,17 +32,35 @@ import { IconComponent } from '../shared/icon.component';
         </button>
         <div class="toolbar-sep"></div>
 
-        <div class="toolbar-btn-group" (mouseenter)="onGroupHover('terminal', $event)" (mouseleave)="scheduleLeave()">
-          <button class="btn" [disabled]="!state.selectedEnvironment()" (click)="newTerminal.emit()">
+        <div class="toolbar-btn-group">
+          <button class="btn toolbar-group-main" [disabled]="!state.selectedEnvironment()" (click)="newTerminal.emit()">
             <app-icon name="terminal" size="14" />
             Terminal
           </button>
+          <button
+            class="btn toolbar-group-toggle"
+            [class.toolbar-group-toggle-active]="dropdownType === 'terminal'"
+            [disabled]="!state.selectedEnvironment()"
+            title="Open Terminal tabs"
+            (click)="toggleDropdown('terminal', $event)"
+          >
+            <app-icon name="chevron-down" size="12" />
+          </button>
         </div>
 
-        <div class="toolbar-btn-group" (mouseenter)="onGroupHover('files', $event)" (mouseleave)="scheduleLeave()">
-          <button class="btn" [disabled]="!state.selectedEnvironment() || !connected()" (click)="openFiles.emit()">
+        <div class="toolbar-btn-group">
+          <button class="btn toolbar-group-main" [disabled]="!state.selectedEnvironment() || !connected()" (click)="openFiles.emit()">
             <app-icon name="folder" size="14" />
             Files
+          </button>
+          <button
+            class="btn toolbar-group-toggle"
+            [class.toolbar-group-toggle-active]="dropdownType === 'files'"
+            [disabled]="!state.selectedEnvironment() || !connected()"
+            title="Open Files tabs"
+            (click)="toggleDropdown('files', $event)"
+          >
+            <app-icon name="chevron-down" size="12" />
           </button>
         </div>
 
@@ -55,47 +73,83 @@ import { IconComponent } from '../shared/icon.component';
           Quick Execute
         </button>
 
-        <div class="toolbar-btn-group" (mouseenter)="onGroupHover('applications', $event)" (mouseleave)="scheduleLeave()">
+        <div class="toolbar-btn-group">
           <button
-            class="btn"
+            class="btn toolbar-group-main"
             [disabled]="!state.selectedEnvironment() || !connected()"
             (click)="openApplications.emit()"
           >
             <app-icon name="activity" size="14" />
             Applications
           </button>
+          <button
+            class="btn toolbar-group-toggle"
+            [class.toolbar-group-toggle-active]="dropdownType === 'applications'"
+            [disabled]="!state.selectedEnvironment() || !connected()"
+            title="Open Applications tabs"
+            (click)="toggleDropdown('applications', $event)"
+          >
+            <app-icon name="chevron-down" size="12" />
+          </button>
         </div>
 
-        <div class="toolbar-btn-group" (mouseenter)="onGroupHover('stage-tracker', $event)" (mouseleave)="scheduleLeave()">
+        <div class="toolbar-btn-group">
           <button
-            class="btn"
+            class="btn toolbar-group-main"
             [disabled]="!state.selectedEnvironment() || !connected()"
             (click)="openStageTracker.emit()"
           >
             <app-icon name="file-search" size="14" />
             Stage Tracker
           </button>
+          <button
+            class="btn toolbar-group-toggle"
+            [class.toolbar-group-toggle-active]="dropdownType === 'stage-tracker'"
+            [disabled]="!state.selectedEnvironment() || !connected()"
+            title="Open Stage Tracker tabs"
+            (click)="toggleDropdown('stage-tracker', $event)"
+          >
+            <app-icon name="chevron-down" size="12" />
+          </button>
         </div>
 
-        <div class="toolbar-btn-group" (mouseenter)="onGroupHover('s3-transfer', $event)" (mouseleave)="scheduleLeave()">
+        <div class="toolbar-btn-group">
           <button
-            class="btn"
+            class="btn toolbar-group-main"
             [disabled]="!state.selectedEnvironment() || !connected()"
             (click)="openS3Transfer.emit()"
           >
             <app-icon name="download" size="14" />
             S3 Transfer
           </button>
+          <button
+            class="btn toolbar-group-toggle"
+            [class.toolbar-group-toggle-active]="dropdownType === 's3-transfer'"
+            [disabled]="!state.selectedEnvironment() || !connected()"
+            title="Open S3 Transfer tabs"
+            (click)="toggleDropdown('s3-transfer', $event)"
+          >
+            <app-icon name="chevron-down" size="12" />
+          </button>
         </div>
 
-        <div class="toolbar-btn-group" (mouseenter)="onGroupHover('s3-explorer', $event)" (mouseleave)="scheduleLeave()">
+        <div class="toolbar-btn-group">
           <button
-            class="btn"
+            class="btn toolbar-group-main"
             [disabled]="!state.selectedEnvironment() || !connected()"
             (click)="openS3Explorer.emit()"
           >
             <app-icon name="cloud" size="14" />
             S3 Explorer
+          </button>
+          <button
+            class="btn toolbar-group-toggle"
+            [class.toolbar-group-toggle-active]="dropdownType === 's3-explorer'"
+            [disabled]="!state.selectedEnvironment() || !connected()"
+            title="Open S3 Explorer tabs"
+            (click)="toggleDropdown('s3-explorer', $event)"
+          >
+            <app-icon name="chevron-down" size="12" />
           </button>
         </div>
 
@@ -105,23 +159,17 @@ import { IconComponent } from '../shared/icon.component';
         </button>
       </div>
 
-      @if (hoverType && dropdownPos) {
-        <div
-          class="toolbar-existing-dropdown"
-          [style.top.px]="dropdownPos.top"
-          [style.left.px]="dropdownPos.left"
-          (mouseenter)="cancelScheduledLeave()"
-          (mouseleave)="scheduleLeave()"
-        >
-          <button class="toolbar-existing-item toolbar-existing-item-new" type="button" (click)="addTab(hoverType)">
+      @if (dropdownType && dropdownPos) {
+        <div class="toolbar-existing-dropdown" [style.top.px]="dropdownPos.top" [style.left.px]="dropdownPos.left" (click)="$event.stopPropagation()">
+          <button class="toolbar-existing-item toolbar-existing-item-new" type="button" (click)="addTab(dropdownType)">
             <app-icon name="plus" size="12" />
-            New {{ hoverLabel(hoverType) }} tab
+            New {{ hoverLabel(dropdownType) }} tab
           </button>
-          @if (existingTabsOf(hoverType).length > 0) {
+          @if (existingTabsOf(dropdownType).length > 0) {
             <div class="toolbar-existing-divider"></div>
-            <div class="toolbar-existing-header">Open {{ hoverLabel(hoverType) }} tabs</div>
-            @for (t of existingTabsOf(hoverType); track t.id) {
-              <button class="toolbar-existing-item" type="button" (click)="activateTab.emit(t.id)">{{ t.title }}</button>
+            <div class="toolbar-existing-header">Open {{ hoverLabel(dropdownType) }} tabs</div>
+            @for (t of existingTabsOf(dropdownType); track t.id) {
+              <button class="toolbar-existing-item" type="button" (click)="selectTab(t.id)">{{ t.title }}</button>
             }
           }
         </div>
@@ -142,11 +190,16 @@ export class ToolbarComponent {
   @Output() activateTab = new EventEmitter<string>();
   @Output() openAdditionalTab = new EventEmitter<TabType>();
 
-  /** Which button group the pointer is currently over, if any - drives the "already
-   * open" preview dropdown so opening a duplicate tab is a deliberate choice made by
-   * clicking the button itself, not the only way to get back to one already open. */
-  hoverType: TabType | null = null;
-  /** Computed from the hovered button group's own bounding rect rather than plain CSS
+  /** Which button group's dropdown is currently open, if any - a real click-to-toggle
+   * (not hover) so it behaves like ag-grid's column-menu hamburger: click the chevron to
+   * open, click it again (or anywhere else) to close, no risk of a quick click opening
+   * and immediately closing again as it would with a hover/mouseleave-driven menu (the
+   * click's own default action - e.g. opening a new tab - can shift the layout enough to
+   * slide the button out from under the pointer, firing mouseleave before the menu is
+   * even visible; only "holding" the mouse still avoided that, which is what prompted
+   * this rewrite). */
+  dropdownType: TabType | null = null;
+  /** Computed from the toggle button's own bounding rect rather than plain CSS
    * (`position: absolute; top: 100%`) because `.toolbar-actions` scrolls horizontally
    * (`overflow-x: auto`) - per the CSS overflow spec, pairing that with `overflow-y:
    * visible` doesn't actually stay visible, it also computes to `auto`, silently
@@ -154,15 +207,6 @@ export class ToolbarComponent {
    * `position: fixed` outside that scroll container, positioned from the real
    * on-screen coordinates, sidesteps the clipping entirely. */
   dropdownPos: { top: number; left: number } | null = null;
-
-  /** The dropdown renders `position: fixed` outside `.toolbar-btn-group` (see
-   * dropdownPos), so it's no longer a DOM descendant of the group the pointer just
-   * left - moving from the button down into the dropdown is a real mouseleave on the
-   * group, not a no-op the way it would be for an absolutely-positioned descendant.
-   * Closing on a short delay (cancelled by entering either the group or the dropdown
-   * itself) bridges that gap so the dropdown doesn't vanish the instant the pointer
-   * starts moving toward it. */
-  private leaveTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly hoverLabels: Record<TabType, string> = {
     terminal: 'Terminal',
@@ -175,26 +219,30 @@ export class ToolbarComponent {
 
   constructor(public state: AppStateService) {}
 
-  onGroupHover(type: TabType, event: MouseEvent): void {
-    this.cancelScheduledLeave();
-    this.hoverType = type;
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  toggleDropdown(type: TabType, event: MouseEvent): void {
+    event.stopPropagation();
+    if (this.dropdownType === type) {
+      this.closeDropdown();
+      return;
+    }
+    this.dropdownType = type;
+    const group = (event.currentTarget as HTMLElement).closest('.toolbar-btn-group') as HTMLElement;
+    const rect = group.getBoundingClientRect();
     this.dropdownPos = { top: rect.bottom + 4, left: rect.left };
   }
 
-  cancelScheduledLeave(): void {
-    if (this.leaveTimer) {
-      clearTimeout(this.leaveTimer);
-      this.leaveTimer = null;
-    }
+  closeDropdown(): void {
+    this.dropdownType = null;
+    this.dropdownPos = null;
   }
 
-  scheduleLeave(): void {
-    this.cancelScheduledLeave();
-    this.leaveTimer = setTimeout(() => {
-      this.hoverType = null;
-      this.dropdownPos = null;
-    }, 200);
+  /** Closes the dropdown on any click outside it - the dropdown's own content stops
+   * propagation (see the template) so this only ever fires for genuine outside clicks,
+   * including the toggle button's own click while the dropdown is already open (that
+   * case is handled directly in toggleDropdown, which also stops propagation). */
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.closeDropdown();
   }
 
   hoverLabel(type: TabType): string {
@@ -203,8 +251,12 @@ export class ToolbarComponent {
 
   addTab(type: TabType): void {
     this.openAdditionalTab.emit(type);
-    this.hoverType = null;
-    this.dropdownPos = null;
+    this.closeDropdown();
+  }
+
+  selectTab(id: string): void {
+    this.activateTab.emit(id);
+    this.closeDropdown();
   }
 
   /** Tabs of this type for the currently selected environment - what clicking the

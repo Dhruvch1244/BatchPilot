@@ -355,19 +355,52 @@ left-edge indicator line showing where it'll land. Purely a client-side
 reorder (no persistence, same as which tab is currently active), so it resets
 on reload rather than needing its own settings/storage plumbing.
 
+Each toolbar button that opens a panel (Terminal, Files, Applications, ...)
+is paired with a small chevron - a split button, same idea as ag-grid's
+column-menu hamburger. Clicking the chevron toggles a dropdown listing any
+tabs of that type already open plus a "New ... tab" action, so opening a
+duplicate is a deliberate choice rather than the only way back to one
+that's already open. It's a real click-to-toggle (open on click, close on
+another click or a click elsewhere) rather than hover-driven - an earlier
+hover-based version could flash open and instantly close on an ordinary
+click, since the main button's own action (e.g. opening a tab) can shift
+the layout enough to slide the button out from under the pointer before
+the menu was even visible.
+
 The Terminal panel (`terminal-tab.component.ts`, built on xterm.js) supports
 copy/paste beyond plain typing:
 
+- **Plain Ctrl+V / Cmd+V** — the most reliable paste, since it's the browser's
+  own native paste (xterm.js already listens for that event on its hidden
+  input) rather than anything going through the async Clipboard API. Works
+  everywhere, including a plain `http://` origin that isn't `localhost` -
+  `navigator.clipboard` itself doesn't even exist in that case (it requires a
+  "secure context": https, or localhost specifically), which is the realistic
+  way this app gets reached day to day, over the internal network rather than
+  behind TLS. Plain Ctrl+C is left completely alone - still SIGINT, exactly as
+  before.
+- **Ctrl+Insert / Shift+Insert** — the classic PuTTY/mintty/Windows-Terminal
+  copy/paste bindings, and the most reliable *keyboard* shortcut on
+  Windows/Linux specifically because they're not reserved by anything.
+- **Ctrl+Shift+C / Ctrl+Shift+V** (or **Cmd+C / Cmd+V** on Mac) — also
+  supported, but note Ctrl+Shift+C is the element-inspector shortcut in both
+  Chrome and Firefox at the browser-chrome level, which a page can't
+  override - it may open DevTools instead of copying depending on what else
+  is bound to it in your browser. Ctrl+Insert doesn't have that problem.
 - **Copy-on-select** — dragging out a selection copies it to the clipboard
   immediately, no extra keypress, the standard X11/Linux terminal convention.
-- **Ctrl+Shift+C / Ctrl+Shift+V** (or **Cmd+C / Cmd+V** on Mac) — explicit
-  copy/paste shortcuts. They're on Shift+ variants rather than plain Ctrl+C/V
-  specifically so they don't collide with the shell's own use of those keys
-  (Ctrl+C is SIGINT, Ctrl+V is "insert next character literally" in
-  readline/bash) — plain Ctrl+C still reaches the shell exactly as before.
 - **Right-click** — copies the current selection if there is one, otherwise
   pastes the clipboard; the classic PuTTY/xterm right-click convention, and
   the fastest mouse-only path when you don't want to reach for the keyboard.
+
+Every copy path falls back to the older `document.execCommand('copy')`
+technique (an off-screen textarea, selected, then copied) whenever
+`navigator.clipboard` isn't available for the reason above - unlike its
+`'paste'` counterpart, browsers never locked that one down, so it still works
+on any origin. There's no equivalent fallback for keyboard/right-click-*paste*
+specifically (`execCommand('paste')` has been blocked in Chrome for years),
+which is exactly why plain Ctrl+V/Cmd+V - not needing the Clipboard API at
+all - is the one to reach for first if the others don't seem to be working.
 
 Pasted text is queued through the same `ready`/pending-input buffer normal
 typed keystrokes use, so pasting immediately after connecting (before the SSH

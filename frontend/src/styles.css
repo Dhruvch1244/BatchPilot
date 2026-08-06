@@ -1095,6 +1095,17 @@ input, select, textarea {
   min-width: 0;
 }
 
+/* Flex items shrink by default, and text wraps before a scrollbar kicks in - so once the
+   split-button chevrons (see .toolbar-group-toggle) pushed total content past the
+   viewport width, "Quick Execute"/"Stage Tracker" started wrapping onto a second line
+   instead of the row just scrolling horizontally as intended. Pin both to their natural
+   size so overflow always means "scroll", never "wrap and go jagged". */
+.toolbar-actions .btn,
+.toolbar-actions .toolbar-btn-group {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .toolbar-sep {
   width: 1px;
   height: 22px;
@@ -1104,6 +1115,33 @@ input, select, textarea {
 
 .toolbar-btn-group {
   display: inline-flex;
+  align-items: stretch;
+}
+
+/* Split-button pairing: the main action button and its dropdown-toggle chevron share
+   one border line down the middle rather than each drawing their own, so the group reads
+   as a single control (the ag-grid-hamburger look this was asked to match) instead of two
+   separate buttons bumped up against each other. */
+.toolbar-group-main {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.toolbar-group-toggle {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+  padding: 6px 7px;
+  color: var(--text-dim);
+}
+
+.toolbar-group-toggle:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.toolbar-group-toggle-active {
+  background: var(--bg-hover);
+  color: var(--accent);
 }
 
 .toolbar-existing-dropdown {
